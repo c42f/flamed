@@ -1,8 +1,11 @@
+#define GL_GLEXT_PROTOTYPES
+#include <GL/gl.h>
+#include <GL/glext.h>
+
 #include "flames.h"
 
 #include <algorithm>
 #include <iostream>
-#include <complex>
 #include <vector>
 #include <float.h>
 #include <math.h>
@@ -10,10 +13,66 @@
 #include <OpenEXR/ImathColor.h>
 
 #include <QtGui/QApplication>
+#include <QtGui/QKeyEvent>
 #include <QtOpenGL/QGLFramebufferObject>
 #include <QtOpenGL/QGLShader>
 #include <QtOpenGL/QGLShaderProgram>
 #include <QtCore/QTimer>
+
+template<typename VertexT>
+class VertexBufferObject
+{
+    public:
+        VertexBufferObject(size_t size)
+            : m_id(0),
+            m_size(size)
+        {
+            glGenBuffers(1, &m_id);
+            glBindBuffer(GL_ARRAY_BUFFER, m_id);
+            glBufferData(GL_ARRAY_BUFFER, m_size*sizeof(VertexT), NULL, GL_DYNAMIC_DRAW);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+        }
+
+        ~VertexBufferObject()
+        {
+            glDeleteBuffers(1, &m_id);
+        }
+
+        void bind() const
+        {
+            glBindBuffer(GL_ARRAY_BUFFER, m_id);
+        }
+
+        void release() const
+        {
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+        }
+
+        VertexT* mapBuffer(GLenum access = GL_READ_WRITE)
+        {
+            bind();
+            return (VertexT*) glMapBuffer(GL_ARRAY_BUFFER, access);
+        }
+        const VertexT* mapBuffer() const
+        {
+            bind();
+            return (VertexT*) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
+        }
+
+        void unmapBuffer() const
+        {
+            glUnmapBuffer(GL_ARRAY_BUFFER);
+            release();
+        }
+
+        GLuint id() { return m_id; }
+        size_t size() { return m_size; }
+
+    private:
+        GLuint m_id;
+        size_t m_size;
+};
+
 
 #if 0
 // Deduced from matplotlib's gist_heat colormap
@@ -42,10 +101,19 @@ inline float radicalInverse(int n)
 }
 
 
+struct IFSPoint
+{
+    float x, y, z;
+    float r, g, b;
+};
+
+
 //------------------------------------------------------------------------------
 FlameViewWidget::FlameViewWidget()
     : m_bbox(-2,-2,4,4),
-    m_frameTimer()
+    m_frameTimer(),
+    m_hdriExposure(1),
+    m_hdriPow(1)
 {
     // Install timer with zero timeout to continuously insert extra points into
     // the FBO.
@@ -85,6 +153,8 @@ void FlameViewWidget::initializeGL()
 
     m_pointAccumFBO.reset(new QGLFramebufferObject(size(), QGLFramebufferObject::NoAttachment,
                                                    GL_TEXTURE_2D, GL_RGBA32F));
+
+    m_ifsPoints.reset(new PointVBO(10000));
 }
 
 void FlameViewWidget::resizeGL(int w, int h)
@@ -99,8 +169,6 @@ void FlameViewWidget::resizeGL(int w, int h)
     glClear(GL_COLOR_BUFFER_BIT);
     m_pointAccumFBO->release();
 }
-
-#define SHADER_SOURCE(src) #src
 
 void FlameViewWidget::paintGL()
 {
@@ -117,57 +185,22 @@ void FlameViewWidget::paintGL()
     // Additive blending for points
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-    glEnable(GL_POINT_SPRITE);
 //    glEnable(GL_POINT_SMOOTH);
+    glEnable(GL_POINT_SPRITE);
     glColor3f(0.5,0.5,0.5);
     glPointSize(1);
     m_pointRenderProgram->bind();
-    // Julia set example.
-    std::complex<double> z = 0;
-    std::complex<double> c(0.4,0.3);
-    Imath::C3f c1(1,0,0);
-    Imath::C3f c2(0,1,0);
-    Imath::C3f col(0);
-    int batchSize = 10000;
-    std::vector<float> pointPos(3*batchSize);
-    std::vector<float> pointCol(3*batchSize);
+    genPoints(m_ifsPoints.get());
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
-    for(int i = 0; i < batchSize; ++i)
-    {
-        if(float(rand())/RAND_MAX > 0.5)
-        {
-            z = sqrt(z - c);
-            col = 0.5f*(col + c1);
-        }
-        else
-        {
-            z = -sqrt(z - c);
-            col = 0.5f*(col + c2);
-        }
-        pointPos[3*i] = real(z); pointPos[3*i+1] = imag(z); pointPos[3*i+2] = 0;
-        pointCol[3*i] = col.x;   pointCol[3*i+1] = col.y;   pointCol[3*i+2] = col.z;
-    }
-    glVertexPointer(3, GL_FLOAT, 3*sizeof(float), &pointPos[0]);
-    glColorPointer(3, GL_FLOAT, 3*sizeof(float), &pointCol[0]);
-    glDrawArrays(GL_POINTS, 0, batchSize);
+    m_ifsPoints->bind();
+    glVertexPointer(3, GL_FLOAT, sizeof(IFSPoint), 0);
+    glColorPointer (3, GL_FLOAT, sizeof(IFSPoint), ((char*)0) + 3*sizeof(float));
+    glDrawArrays(GL_POINTS, 0, m_ifsPoints->size());
+    m_ifsPoints->release();
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
-
-    // Set of Halton points
-//    glBegin(GL_POINTS);
-//    for(int i = 0; i < 10000; ++i)
-//    {
-//        float x = 2*radicalInverse<2>(i) - 1;
-//        float y = 2*radicalInverse<3>(i) - 1;
-//        float r = 0, g = 0, b = 0;
-//        heatmap(i/10000.0, r, g, b);
-//        glColor3d(r, g, b);
-//        glVertex2f(x, y);
-//    }
-//    glEnd();
     m_pointRenderProgram->release();
-
     m_pointAccumFBO->release();
 
 //    std::cout << (m_pointAccumFBO->format().internalTextureFormat() == GL_RGBA32F) << "\n";
@@ -179,6 +212,8 @@ void FlameViewWidget::paintGL()
     GLint texUnit = 0;
     glActiveTexture(GL_TEXTURE0 + texUnit);
     m_hdriProgram->setUniformValue("tex", texUnit);
+    m_hdriProgram->setUniformValue("hdriExposure", m_hdriExposure);
+    m_hdriProgram->setUniformValue("hdriPow", m_hdriPow);
     glBindTexture(GL_TEXTURE_2D, m_pointAccumFBO->texture());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -196,12 +231,64 @@ void FlameViewWidget::paintGL()
 }
 
 
+void FlameViewWidget::keyPressEvent(QKeyEvent* event)
+{
+    if(event->key() == Qt::Key_Plus)
+        m_hdriExposure /= 1.5;
+    else if(event->key() == Qt::Key_Minus)
+        m_hdriExposure *= 1.5;
+    else if(event->key() == Qt::Key_BracketRight)
+        m_hdriPow *= 1.5;
+    else if(event->key() == Qt::Key_BracketLeft)
+        m_hdriPow /= 1.5;
+    else if(event->key() == Qt::Key_Escape)
+        close();
+//    std::cout << m_hdriExposure << "  " << m_hdriPow << "\n";
+}
+
 
 QSize FlameViewWidget::sizeHint() const
 {
     return QSize(640, 480);
 }
 
+
+void FlameViewWidget::genPoints(PointVBO* points)
+{
+    IFSPoint* ptData = points->mapBuffer(GL_WRITE_ONLY);
+    // Julia set example.
+    complex z = 0;
+    complex c(0.4,0.3);
+    Imath::C3f c1(1,0,0);
+    Imath::C3f c2(0,1,0);
+    Imath::C3f col(0);
+    int batchSize = points->size();
+    for(int i = 0; i < batchSize; ++i, ++ptData)
+    {
+        if(float(rand())/RAND_MAX > 0.5)
+        {
+            z = sqrt(z - c);
+            col = 0.5f*(col + c1);
+        }
+        else
+        {
+            z = -sqrt(z - c);
+            col = 0.5f*(col + c2);
+        }
+        ptData->x = real(z); ptData->y = imag(z); ptData->z = 0;
+        ptData->r = col.x;   ptData->g = col.y;   ptData->b = col.z;
+    }
+
+    // Set of Halton points
+//    for(int i = 0; i < (int)points->size(); ++i, ++ptData)
+//    {
+//        ptData->x = 2*radicalInverse<2>(i) - 1;
+//        ptData->y = 2*radicalInverse<3>(i) - 1;
+//        ptData->z = 0;
+//        heatmap(double(i)/points->size(), ptData->r, ptData->g, ptData->b);
+//    }
+    points->unmapBuffer();
+}
 
 int main(int argc, char* argv[])
 {

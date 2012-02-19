@@ -10,7 +10,8 @@ float sRGB_gamma_correct(float c)
 }
 
 uniform sampler2D tex;
-//uniform float tone
+uniform float hdriExposure;
+uniform float hdriPow;
 
 // HDRI tone mapping
 void main()
@@ -34,8 +35,11 @@ void main()
     float y = XYZ.y / (XYZ.x + XYZ.y + XYZ.z);
     float Y = XYZ.y;
     // and tone map the luminosity Y, before transforming back:
-    //Y = pow(Y, 0.5);
-    Y = Y / (1.0 + Y);
+    if(Y != 0.0)
+    {
+        Y = pow(Y, hdriPow);
+        Y = Y / (hdriExposure + Y);
+    }
     //Y = clamp(Y/100.0, 0.0, 1.0);
     XYZ = vec3(Y*x/y, Y, Y*(1.0-x-y)/y);
     vec3 RGB = XYZ_to_RGB * XYZ;
