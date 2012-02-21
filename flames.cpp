@@ -3,11 +3,10 @@
 #include <GL/glext.h>
 
 #include "flames.h"
+#include "compute_flames.h"
 
 #include <algorithm>
 #include <iostream>
-#include <vector>
-#include <float.h>
 #include <math.h>
 
 #include <QtGui/QApplication>
@@ -17,62 +16,6 @@
 #include <QtOpenGL/QGLShaderProgram>
 #include <QtCore/QTimer>
 #include <QtCore/QFileInfo>
-
-
-// Thin wrapper around OpenGL vertex buffer object
-template<typename VertexT>
-class VertexBufferObject
-{
-    public:
-        VertexBufferObject(size_t size)
-            : m_id(0),
-            m_size(size)
-        {
-            glGenBuffers(1, &m_id);
-            glBindBuffer(GL_ARRAY_BUFFER, m_id);
-            glBufferData(GL_ARRAY_BUFFER, m_size*sizeof(VertexT), NULL, GL_DYNAMIC_DRAW);
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-        }
-
-        ~VertexBufferObject()
-        {
-            glDeleteBuffers(1, &m_id);
-        }
-
-        void bind() const
-        {
-            glBindBuffer(GL_ARRAY_BUFFER, m_id);
-        }
-
-        void release() const
-        {
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-        }
-
-        VertexT* mapBuffer(GLenum access = GL_READ_WRITE)
-        {
-            bind();
-            return (VertexT*) glMapBuffer(GL_ARRAY_BUFFER, access);
-        }
-        const VertexT* mapBuffer() const
-        {
-            bind();
-            return (VertexT*) glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
-        }
-
-        void unmapBuffer() const
-        {
-            glUnmapBuffer(GL_ARRAY_BUFFER);
-            release();
-        }
-
-        GLuint id() { return m_id; }
-        size_t size() { return m_size; }
-
-    private:
-        GLuint m_id;
-        size_t m_size;
-};
 
 
 #if 0
@@ -101,115 +44,6 @@ inline float radicalInverse(int n)
     return value;
 }
 
-
-// Simplistic 3 component color
-struct C3f
-{
-    float x,y,z;
-    C3f() {}
-    C3f(float x, float y, float z) : x(x), y(y), z(z) {}
-    C3f(float v) : x(v), y(v), z(v) {}
-};
-inline C3f operator+(const C3f& c1, const C3f& c2)
-{
-    return C3f(c1.x + c2.x, c1.y + c2.y, c1.z + c2.z);
-}
-inline C3f operator*(float a, const C3f& c)
-{
-    return C3f(c.x*a, c.y*a, c.z*a);
-}
-inline C3f operator*(const C3f& c, float a)
-{
-    return a*c;
-}
-
-
-struct V2f
-{
-    float x,y;
-    V2f() {}
-    V2f(float x, float y) : x(x), y(y) {}
-    V2f(float v) : x(v), y(v) {}
-};
-inline V2f operator+(const V2f& c1, const V2f& c2)
-{
-    return V2f(c1.x + c2.x, c1.y + c2.y);
-}
-inline V2f operator*(float a, const V2f& c)
-{
-    return V2f(c.x*a, c.y*a);
-}
-inline V2f operator*(const V2f& c, float a)
-{
-    return a*c;
-}
-
-
-// Point data for IFS mapping
-struct IFSPoint
-{
-    V2f pos;
-    C3f col;
-};
-
-
-// Mapping
-struct FlameMapping
-{
-    float a,b,c,d,e,f;
-    C3f col;
-    int variation;
-
-    FlameMapping() : a(1), b(0), c(0), d(0), e(1), f(0), col(1), variation(0) {}
-
-    V2f mapV1(V2f p) const
-    {
-        float s = 1/(p.x*p.x + p.y*p.y);
-        return V2f(s*p.x, s*p.y);
-    }
-
-    V2f mapV2(V2f p) const
-    {
-        float s = exp(p.x - 1);
-        return V2f(s*cos(M_PI*p.y), s*sin(M_PI*p.y));
-    }
-
-    V2f mapV3(V2f p) const
-    {
-        return V2f(sin(p.x)/cos(p.y), tan(p.y));
-    }
-
-    V2f mapV4(V2f p) const
-    {
-        float s = 2/(sqrt(p.x*p.x + p.y*p.y) + 1);
-        return V2f(p.y*s, p.x*s);
-    }
-
-    V2f mapV5(V2f p) const
-    {
-        return V2f(sin(p.x), sin(p.y));
-    }
-
-    V2f map(V2f p) const
-    {
-        p = V2f(a*p.x + b*p.y + c, d*p.x + e*p.y + f);
-        switch(variation)
-        {
-            default: return p;
-            case 1: return mapV1(p);
-            case 2: return mapV2(p);
-            case 3: return mapV3(p);
-            case 4: return mapV4(p);
-            case 5: return mapV5(p);
-        }
-    }
-};
-
-
-struct FlameMaps
-{
-    std::vector<FlameMapping> maps;
-};
 
 //------------------------------------------------------------------------------
 FlameViewWidget::FlameViewWidget()
@@ -321,7 +155,7 @@ void FlameViewWidget::paintGL()
     glColor3f(0.5,0.5,0.5);
     glPointSize(1);
     m_pointRenderProgram->bind();
-    genPoints(m_ifsPoints.get());
+    computeFractalFlame(m_ifsPoints.get(), *m_flameMaps);
     ++m_nPasses;
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
@@ -459,69 +293,6 @@ void FlameViewWidget::mouseMoveEvent(QMouseEvent* event)
 QSize FlameViewWidget::sizeHint() const
 {
     return QSize(640, 480);
-}
-
-
-void FlameViewWidget::genPoints(PointVBO* points)
-{
-    IFSPoint* ptData = points->mapBuffer(GL_WRITE_ONLY);
-
-#if 1
-    int nMaps = m_flameMaps->maps.size();
-    // Flame fractals!
-    V2f p = V2f(0,0);
-    int discard = 20;
-    C3f col(1);
-    int nPoints = points->size();
-    for(int i = -discard; i < nPoints; ++i)
-    {
-        int mapIdx = rand() % nMaps;
-        const FlameMapping& m = m_flameMaps->maps[mapIdx];
-        p = m.map(p);
-        col = 0.5*(col + m.col);
-        if(i >= 0)
-        {
-            ptData->pos = p;
-            ptData->col = col;
-            ++ptData;
-        }
-    }
-#endif
-
-#if 0
-    // Julia set example.
-    complex z = 0;
-    complex c(0.4,0.3);
-    C3f c1(1,0,0);
-    C3f c2(0,1,0);
-    C3f col(0);
-    int batchSize = points->size();
-    for(int i = 0; i < batchSize; ++i, ++ptData)
-    {
-        if(float(rand())/RAND_MAX > 0.5)
-        {
-            z = sqrt(z - c);
-            col = 0.5f*(col + c1);
-        }
-        else
-        {
-            z = -sqrt(z - c);
-            col = 0.5f*(col + c2);
-        }
-        ptData->pos = V2f(real(z), imag(z));
-        ptData->col = col;
-    }
-#endif
-
-    // Set of Halton points
-#if 0
-    for(int i = 0; i < (int)points->size(); ++i, ++ptData)
-    {
-        ptData->pos = V2f(2*radicalInverse<2>(i) - 1, 2*radicalInverse<3>(i) - 1);
-        heatmap(double(i)/points->size(), ptData->col.x, ptData->col.y, ptData->col.z);
-    }
-#endif
-    points->unmapBuffer();
 }
 
 

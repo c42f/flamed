@@ -29,6 +29,7 @@ qt4_wrap_cpp(moc_srcs
 set(srcs
     ${moc_srcs}
     flames.cpp
+    compute_flames.cpp
 )
 
 set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build" FORCE)

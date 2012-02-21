@@ -1,5 +1,3 @@
-//#include <glew.h>
-
 #include <QtOpenGL/QGLWidget>
 #include <tr1/memory>
 #include <complex>
@@ -15,6 +13,7 @@ typedef VertexBufferObject<IFSPoint> PointVBO;
 
 struct FlameMaps;
 
+// Viewer for flame fractals
 class FlameViewWidget : public QGLWidget
 {
     Q_OBJECT
@@ -43,7 +42,6 @@ class FlameViewWidget : public QGLWidget
             Mode_Scale
         };
 
-        void genPoints(PointVBO* points);
         void drawMaps(const FlameMaps* flameMaps);
         void clearAccumulator();
 
