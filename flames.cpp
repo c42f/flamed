@@ -16,6 +16,7 @@
 #include <QtOpenGL/QGLShader>
 #include <QtOpenGL/QGLShaderProgram>
 #include <QtCore/QTimer>
+#include <QtCore/QFileInfo>
 
 
 // Thin wrapper around OpenGL vertex buffer object
@@ -123,10 +124,31 @@ inline C3f operator*(const C3f& c, float a)
 }
 
 
+struct V2f
+{
+    float x,y;
+    V2f() {}
+    V2f(float x, float y) : x(x), y(y) {}
+    V2f(float v) : x(v), y(v) {}
+};
+inline V2f operator+(const V2f& c1, const V2f& c2)
+{
+    return V2f(c1.x + c2.x, c1.y + c2.y);
+}
+inline V2f operator*(float a, const V2f& c)
+{
+    return V2f(c.x*a, c.y*a);
+}
+inline V2f operator*(const V2f& c, float a)
+{
+    return a*c;
+}
+
+
 // Point data for IFS mapping
 struct IFSPoint
 {
-    float x, y;
+    V2f pos;
     C3f col;
 };
 
@@ -136,26 +158,50 @@ struct FlameMapping
 {
     float a,b,c,d,e,f;
     C3f col;
+    int variation;
 
-    FlameMapping() : a(1), b(0), c(0), d(0), e(1), f(0), col(1) {}
+    FlameMapping() : a(1), b(0), c(0), d(0), e(1), f(0), col(1), variation(0) {}
 
-    void map(float& x, float& y) const
+    V2f mapV1(V2f p) const
     {
-        float x0 = x, y0 = y;
-        x = a*x0 + b*y0 + c;
-        y = d*x0 + e*y0 + f;
-        x0 = x; y0 = y;
-//        float s = 1/(x0*x0 + y0*y0);
-//        x = s*x0;
-//        y = s*y0;
-//        float s = exp(x0 - 1);
-//        x = s*cos(M_PI*y0);
-//        y = s*sin(M_PI*y0);
-//        x = sin(x0)/cos(y0);
-//        y = tan(y0);
-        float s = 2/(sqrt(x0*x0 + y0*y0) + 1);
-        x = y0*s;
-        y = x0*s;
+        float s = 1/(p.x*p.x + p.y*p.y);
+        return V2f(s*p.x, s*p.y);
+    }
+
+    V2f mapV2(V2f p) const
+    {
+        float s = exp(p.x - 1);
+        return V2f(s*cos(M_PI*p.y), s*sin(M_PI*p.y));
+    }
+
+    V2f mapV3(V2f p) const
+    {
+        return V2f(sin(p.x)/cos(p.y), tan(p.y));
+    }
+
+    V2f mapV4(V2f p) const
+    {
+        float s = 2/(sqrt(p.x*p.x + p.y*p.y) + 1);
+        return V2f(p.y*s, p.x*s);
+    }
+
+    V2f mapV5(V2f p) const
+    {
+        return V2f(sin(p.x), sin(p.y));
+    }
+
+    V2f map(V2f p) const
+    {
+        p = V2f(a*p.x + b*p.y + c, d*p.x + e*p.y + f);
+        switch(variation)
+        {
+            default: return p;
+            case 1: return mapV1(p);
+            case 2: return mapV2(p);
+            case 3: return mapV3(p);
+            case 4: return mapV4(p);
+            case 5: return mapV5(p);
+        }
     }
 };
 
@@ -190,6 +236,7 @@ FlameViewWidget::FlameViewWidget()
     m_flameMaps->maps[0].c = 0.5;
     m_flameMaps->maps[0].f = 0.5;
     m_flameMaps->maps[0].col = C3f(1,0,0);
+    m_flameMaps->maps[0].variation = 1;
 
     m_flameMaps->maps[1].a = 0.4;
     m_flameMaps->maps[1].b = 0.4;
@@ -197,6 +244,15 @@ FlameViewWidget::FlameViewWidget()
     m_flameMaps->maps[1].e = 0.5;
     m_flameMaps->maps[1].c = -0.5;
     m_flameMaps->maps[1].col = C3f(0,0,1);
+    m_flameMaps->maps[1].variation = 4;
+
+//    m_flameMaps->maps[2].col = C3f(0,1,0);
+//    m_flameMaps->maps[2].a = -0.4;
+//    m_flameMaps->maps[2].b = 0.4;
+//    m_flameMaps->maps[2].d = 0.5;
+//    m_flameMaps->maps[2].e = -0.3;
+
+//    m_flameMaps->maps[3].col = C3f(1,1,1);
 }
 
 
@@ -230,7 +286,7 @@ void FlameViewWidget::initializeGL()
     m_pointAccumFBO.reset(new QGLFramebufferObject(size(), QGLFramebufferObject::NoAttachment,
                                                    GL_TEXTURE_2D, GL_RGBA32F));
 
-    m_ifsPoints.reset(new PointVBO(10000));
+    m_ifsPoints.reset(new PointVBO(100000));
 }
 
 
@@ -271,7 +327,7 @@ void FlameViewWidget::paintGL()
     glEnableClientState(GL_COLOR_ARRAY);
     m_ifsPoints->bind();
     glVertexPointer(2, GL_FLOAT, sizeof(IFSPoint), 0);
-    glColorPointer (3, GL_FLOAT, sizeof(IFSPoint), ((char*)0) + 2*sizeof(float));
+    glColorPointer (3, GL_FLOAT, sizeof(IFSPoint), ((char*)0) + sizeof(V2f));
     glDrawArrays(GL_POINTS, 0, m_ifsPoints->size());
     m_ifsPoints->release();
     glDisableClientState(GL_VERTEX_ARRAY);
@@ -288,7 +344,8 @@ void FlameViewWidget::paintGL()
     GLint texUnit = 0;
     glActiveTexture(GL_TEXTURE0 + texUnit);
     m_hdriProgram->setUniformValue("tex", texUnit);
-    m_hdriProgram->setUniformValue("hdriExposure", m_hdriExposure*m_nPasses);
+    float pointDens = float(width()*height()) / (m_nPasses*m_ifsPoints->size());
+    m_hdriProgram->setUniformValue("hdriExposure", m_hdriExposure*pointDens);
     m_hdriProgram->setUniformValue("hdriPow", m_hdriPow);
     glBindTexture(GL_TEXTURE_2D, m_pointAccumFBO->texture());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -307,15 +364,18 @@ void FlameViewWidget::paintGL()
 
     if(m_editMaps)
         drawMaps(m_flameMaps.get());
+    // Debug: for timing.
+//    if(m_nPasses*m_ifsPoints->size() > 40000000)
+//        close();
 }
 
 
 void FlameViewWidget::keyPressEvent(QKeyEvent* event)
 {
     if(event->key() == Qt::Key_Plus)
-        m_hdriExposure /= 1.5;
-    else if(event->key() == Qt::Key_Minus)
         m_hdriExposure *= 1.5;
+    else if(event->key() == Qt::Key_Minus)
+        m_hdriExposure /= 1.5;
     else if(event->key() == Qt::Key_BracketRight)
         m_hdriPow *= 1.5;
     else if(event->key() == Qt::Key_BracketLeft)
@@ -330,6 +390,21 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
         m_editMode = Mode_Scale;
     else if(event->key() == Qt::Key_R)
         m_editMode = Mode_Rotate;
+    else if(event->key() == Qt::Key_P)
+    {
+        // get file name
+        QString nameTemplate = QString("output%1.png");
+        int idx = 0;
+        QString fName;
+        while(true)
+        {
+            fName = nameTemplate.arg(idx);
+            if(!QFileInfo(fName).exists())
+                break;
+            ++idx;
+        }
+        grabFrameBuffer().save(fName);
+    }
     else if(event->key() == Qt::Key_Escape)
         close();
     event->ignore();
@@ -394,8 +469,7 @@ void FlameViewWidget::genPoints(PointVBO* points)
 #if 1
     int nMaps = m_flameMaps->maps.size();
     // Flame fractals!
-    float x = 0;
-    float y = 0;
+    V2f p = V2f(0,0);
     int discard = 20;
     C3f col(1);
     int nPoints = points->size();
@@ -403,12 +477,11 @@ void FlameViewWidget::genPoints(PointVBO* points)
     {
         int mapIdx = rand() % nMaps;
         const FlameMapping& m = m_flameMaps->maps[mapIdx];
-        m.map(x, y);
+        p = m.map(p);
         col = 0.5*(col + m.col);
         if(i >= 0)
         {
-            ptData->x = x;
-            ptData->y = y;
+            ptData->pos = p;
             ptData->col = col;
             ++ptData;
         }
@@ -435,7 +508,7 @@ void FlameViewWidget::genPoints(PointVBO* points)
             z = -sqrt(z - c);
             col = 0.5f*(col + c2);
         }
-        ptData->x = real(z); ptData->y = imag(z);
+        ptData->pos = V2f(real(z), imag(z));
         ptData->col = col;
     }
 #endif
@@ -444,8 +517,7 @@ void FlameViewWidget::genPoints(PointVBO* points)
 #if 0
     for(int i = 0; i < (int)points->size(); ++i, ++ptData)
     {
-        ptData->x = 2*radicalInverse<2>(i) - 1;
-        ptData->y = 2*radicalInverse<3>(i) - 1;
+        ptData->pos = V2f(2*radicalInverse<2>(i) - 1, 2*radicalInverse<3>(i) - 1);
         heatmap(double(i)/points->size(), ptData->col.x, ptData->col.y, ptData->col.z);
     }
 #endif
@@ -478,26 +550,22 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
         for(int j = 0; j <= N; ++j)
         for(int i = 1; i <= N; ++i)
         {
-            float x0 = 2.0*(i-1)/N - 1;
-            float x1 = 2.0*i/N - 1;
-            float y0 = 2.0*j/N - 1;
-            float y1 = y0;
-            m.map(x0, y0);
-            m.map(x1, y1);
-            glVertex2f(x0, y0);
-            glVertex2f(x1, y1);
+            V2f p0(2.0*(i-1)/N - 1, 2.0*j/N - 1);
+            V2f p1(2.0*i    /N - 1, 2.0*j/N - 1);
+            p0 = m.map(p0);
+            p1 = m.map(p1);
+            glVertex2f(p0.x, p0.y);
+            glVertex2f(p1.x, p1.y);
         }
         for(int j = 1; j <= N; ++j)
         for(int i = 0; i <= N; ++i)
         {
-            float x0 = 2.0*i/N - 1;
-            float x1 = x0;
-            float y0 = 2.0*j/N - 1;
-            float y1 = 2.0*(j-1)/N - 1;
-            m.map(x0, y0);
-            m.map(x1, y1);
-            glVertex2f(x0, y0);
-            glVertex2f(x1, y1);
+            V2f p0(2.0*i/N - 1, 2.0*(j-1)/N - 1);
+            V2f p1(2.0*i/N - 1, 2.0*j    /N - 1);
+            p0 = m.map(p0);
+            p1 = m.map(p1);
+            glVertex2f(p0.x, p0.y);
+            glVertex2f(p1.x, p1.y);
         }
         glEnd();
     }

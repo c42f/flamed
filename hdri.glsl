@@ -37,8 +37,8 @@ void main()
     // and tone map the luminosity Y, before transforming back:
     if(Y != 0.0)
     {
-        Y = pow(Y, hdriPow);
-        Y = Y / (hdriExposure + Y);
+        Y = hdriExposure*pow(Y, hdriPow);
+        Y = Y / (1.0 + Y);
     }
     //Y = clamp(Y/100.0, 0.0, 1.0);
     XYZ = vec3(Y*x/y, Y, Y*(1.0-x-y)/y);
