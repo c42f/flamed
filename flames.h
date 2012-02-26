@@ -42,12 +42,14 @@ class FlameViewWidget : public QGLWidget
             Mode_Scale
         };
 
+        void loadScreenCoords() const;
         void drawMaps(const FlameMaps* flameMaps);
         void clearAccumulator();
 
         std::tr1::shared_ptr<QGLShaderProgram> m_pointRenderProgram;
         std::tr1::shared_ptr<QGLShaderProgram> m_hdriProgram;
         std::tr1::shared_ptr<QGLFramebufferObject> m_pointAccumFBO;
+        std::tr1::shared_ptr<QGLFramebufferObject> m_pickerFBO;
         std::tr1::shared_ptr<PointVBO> m_ifsPoints;
         std::tr1::shared_ptr<FlameMaps> m_flameMaps;
 
@@ -55,8 +57,10 @@ class FlameViewWidget : public QGLWidget
         EditMode m_editMode;
         int m_mapToEdit;
         QPoint m_lastPos;
+        float m_invPickX;
+        float m_invPickY;
 
-        QRectF m_bbox;
+        float m_screenYMax;
         QTimer* m_frameTimer;
         float m_hdriExposure;
         float m_hdriPow;

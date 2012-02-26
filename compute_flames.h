@@ -83,8 +83,8 @@ struct C3f
 {
     float x,y,z;
     C3f() {}
+    explicit C3f(float v) : x(v), y(v), z(v) {}
     C3f(float x, float y, float z) : x(x), y(y), z(z) {}
-    C3f(float v) : x(v), y(v), z(v) {}
 };
 inline C3f operator+(const C3f& c1, const C3f& c2)
 {
@@ -105,12 +105,16 @@ struct V2f
 {
     float x,y;
     V2f() {}
+    explicit V2f(float v) : x(v), y(v) {}
     V2f(float x, float y) : x(x), y(y) {}
-    V2f(float v) : x(v), y(v) {}
 };
 inline V2f operator+(const V2f& c1, const V2f& c2)
 {
     return V2f(c1.x + c2.x, c1.y + c2.y);
+}
+inline V2f operator-(const V2f& c1, const V2f& c2)
+{
+    return V2f(c1.x - c2.x, c1.y - c2.y);
 }
 inline V2f operator*(float a, const V2f& c)
 {
@@ -120,7 +124,30 @@ inline V2f operator*(const V2f& c, float a)
 {
     return a*c;
 }
+inline float cross(V2f& a, V2f b)
+{
+    return a.x*b.y - b.x*a.y;
+}
+inline void glVertex(const V2f& v)
+{
+    return glVertex2f(v.x, v.y);
+}
 
+
+// Simplistic 2x2 matrix
+struct M22f
+{
+    float a,b,
+          c,d;
+    explicit M22f(float x = 1)
+        : a(x), b(0), c(0), d(x) {}
+    explicit M22f(float a, float b, float c, float d)
+        : a(a), b(b), c(c), d(d) {}
+};
+inline V2f operator*(const M22f& m, const V2f& p)
+{
+    return V2f(m.a*p.x + m.b*p.y, m.c*p.x + m.d*p.y);
+}
 
 // Point data for IFS mapping
 struct IFSPoint
@@ -135,11 +162,12 @@ typedef VertexBufferObject<IFSPoint> PointVBO;
 // Definition of a fractal flame mapping
 struct FlameMapping
 {
-    float a,b,c,d,e,f;
+    M22f m;
+    V2f c;
     C3f col;
     int variation;
 
-    FlameMapping() : a(1), b(0), c(0), d(0), e(1), f(0), col(1), variation(0) {}
+    FlameMapping() : m(1), c(0), col(1), variation(0) {}
 
     V2f mapV1(V2f p) const
     {
@@ -171,7 +199,7 @@ struct FlameMapping
 
     V2f map(V2f p) const
     {
-        p = V2f(a*p.x + b*p.y + c, d*p.x + e*p.y + f);
+        p = m*p + c;
         switch(variation)
         {
             default: return p;
@@ -182,6 +210,11 @@ struct FlameMapping
             case 5: return mapV5(p);
         }
     }
+
+//    M22f deriv(V2f p) const
+//    {
+//        return m;
+//    }
 };
 
 

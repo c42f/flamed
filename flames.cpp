@@ -27,6 +27,18 @@ static void heatmap(double x, float& r, float& g, float& b)
     g = std::max(0.0, (x - 0.477)/(1 - 0.477));
     b = std::max(0.0, (x - 0.75)/(1 - 0.75));
 }
+
+static void printGlError(const char* tag)
+{
+    GLenum err = glGetError();
+#define ERR_PRN(code)               \
+    if(err == code)                 \
+        std::cout << tag << " " << #code "\n"
+    ERR_PRN(GL_INVALID_ENUM);
+    ERR_PRN(GL_INVALID_VALUE);
+    ERR_PRN(GL_INVALID_OPERATION);
+#undef ERR_PRN
+}
 #endif
 
 
@@ -52,7 +64,7 @@ FlameViewWidget::FlameViewWidget()
     m_editMode(Mode_Translate),
     m_mapToEdit(0),
     m_lastPos(),
-    m_bbox(-2,-2,4,4),
+    m_screenYMax(2),
     m_frameTimer(),
     m_hdriExposure(1),
     m_hdriPow(1),
@@ -65,20 +77,16 @@ FlameViewWidget::FlameViewWidget()
     m_frameTimer->start(0);
     connect(m_frameTimer, SIGNAL(timeout()), this, SLOT(updateGL()));
     m_flameMaps->maps.resize(2);
-    m_flameMaps->maps[0].a = 0.6;
-    m_flameMaps->maps[0].e = 0.6;
-    m_flameMaps->maps[0].c = 0.5;
-    m_flameMaps->maps[0].f = 0.5;
+    m_flameMaps->maps[0].m = M22f(0.6, 0, 0, 0.6);
+    m_flameMaps->maps[0].c = V2f(0.5, 0.5);
     m_flameMaps->maps[0].col = C3f(1,0,0);
-    m_flameMaps->maps[0].variation = 1;
+    m_flameMaps->maps[0].variation = 0;
 
-    m_flameMaps->maps[1].a = 0.4;
-    m_flameMaps->maps[1].b = 0.4;
-    m_flameMaps->maps[1].d = -0.5;
-    m_flameMaps->maps[1].e = 0.5;
-    m_flameMaps->maps[1].c = -0.5;
+//    m_flameMaps->maps[1].m = M22f(0, 1, -1, 0);
+    m_flameMaps->maps[1].m = M22f(0.4, 0.4, -0.5, 0.5);
+    m_flameMaps->maps[1].c = V2f(-0.5, 0);
     m_flameMaps->maps[1].col = C3f(0,0,1);
-    m_flameMaps->maps[1].variation = 4;
+    m_flameMaps->maps[1].variation = 0;
 
 //    m_flameMaps->maps[2].col = C3f(0,1,0);
 //    m_flameMaps->maps[2].a = -0.4;
@@ -132,6 +140,10 @@ void FlameViewWidget::resizeGL(int w, int h)
                                  GL_TEXTURE_2D, GL_RGBA32F)
     );
     clearAccumulator();
+    m_pickerFBO.reset(
+        new QGLFramebufferObject(/*1, 1*/size(), QGLFramebufferObject::NoAttachment,
+                                 GL_TEXTURE_2D, GL_RG32F)
+    );
 }
 
 
@@ -143,9 +155,7 @@ void FlameViewWidget::paintGL()
     // Render all points into framebuffer object
     m_pointAccumFBO->bind();
 
-    glLoadIdentity();
-    float aspect = float(width())/height();
-    glScalef(0.5/aspect, 0.5, 1);
+    loadScreenCoords();
 
     // Additive blending for points
     glEnable(GL_BLEND);
@@ -169,11 +179,12 @@ void FlameViewWidget::paintGL()
     m_pointRenderProgram->release();
     m_pointAccumFBO->release();
 
-//    std::cout << (m_pointAccumFBO->format().internalTextureFormat() == GL_RGBA32F) << "\n";
-
     glDisable(GL_BLEND);
+    glClearColor(0,0,0,0);
+    glClear(GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
     m_hdriProgram->bind();
+//    glEnable(GL_TEXTURE_2D);
     // Bind FBO to texture unit & set shader params.
     GLint texUnit = 0;
     glActiveTexture(GL_TEXTURE0 + texUnit);
@@ -182,6 +193,7 @@ void FlameViewWidget::paintGL()
     m_hdriProgram->setUniformValue("hdriExposure", m_hdriExposure*pointDens);
     m_hdriProgram->setUniformValue("hdriPow", m_hdriPow);
     glBindTexture(GL_TEXTURE_2D, m_pointAccumFBO->texture());
+//    glBindTexture(GL_TEXTURE_2D, m_pickerFBO->texture());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glBegin(GL_QUADS);
@@ -194,6 +206,7 @@ void FlameViewWidget::paintGL()
         glTexCoord2f(0, 1);
         glVertex2f(-1, 1);
     glEnd();
+//    glDisable(GL_TEXTURE_2D);
     m_hdriProgram->release();
 
     if(m_editMaps)
@@ -249,6 +262,86 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
 void FlameViewWidget::mousePressEvent(QMouseEvent* event)
 {
     m_lastPos = event->pos();
+
+    // Compute the point which maps into the clicked location when applying the
+    // currently selected mapping.
+    //
+    // TODO: Make this suck less (use a tiny restricted viewport for efficiency)!
+    m_pickerFBO->bind();
+
+    glPushAttrib(GL_VIEWPORT_BIT | GL_TRANSFORM_BIT | GL_COLOR_BUFFER_BIT);
+//    glViewport(0, 0, 1, 1);
+    glClearColor(-1,-1,-1,1);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+//    glLoadIdentity();
+//    int x = event->pos().x();
+//    int y = event->pos().y();
+//    glOrtho(x, x+1, y+1, y, -1, 1);
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+//    glLoadIdentity();
+//    float aspect = float(width())/height();
+//    glScalef(1/(m_screenYMax*aspect), 1/m_screenYMax, 1);
+    loadScreenCoords();
+
+//    drawMaps(m_flameMaps.get());
+    // Render out the current map
+    const FlameMapping& m = m_flameMaps->maps[m_mapToEdit];
+    const float maxDrawArea = 2;
+    const int N = 30;
+    glBegin(GL_QUADS);
+    for(int j = 0; j < N; ++j)
+    for(int i = 0; i < N; ++i)
+    {
+        V2f p0 = m.map(V2f(2.0*i/N     - 1, 2.0*j/N     - 1));
+        V2f p1 = m.map(V2f(2.0*(i+1)/N - 1, 2.0*j/N     - 1));
+        V2f p2 = m.map(V2f(2.0*(i+1)/N - 1, 2.0*(j+1)/N - 1));
+        V2f p3 = m.map(V2f(2.0*i/N     - 1, 2.0*(j+1)/N - 1));
+        V2f d1 = p1 - p0;
+        V2f d2 = p2 - p0;
+        V2f d3 = p3 - p0;
+        float area = 0.5*fabs(cross(d2, d1) + cross(d3, d2));
+        if(area < maxDrawArea)
+        {
+            glColor3f(float(i)/N, float(j)/N, 0);
+            glVertex(p0);
+            glColor3f(float(i+1)/N, float(j)/N, 0);
+            glVertex(p1);
+            glColor3f(float(i+1)/N, float(j+1)/N, 0);
+            glVertex(p2);
+            glColor3f(float(i)/N, float(j+1)/N, 0);
+            glVertex(p3);
+        }
+    }
+    glEnd();
+
+    glPopAttrib();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+
+    float* fInv = new float[3*width()*height()];
+//    float fInv[3] = {0};
+    glBindTexture(GL_TEXTURE_2D, m_pickerFBO->texture());
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, fInv);
+//    m_invPickX = fInv[0];
+//    m_invPickY = fInv[1];
+    float r = fInv[3*(width()*(height() - event->y()) + event->x())];
+    float g = fInv[3*(width()*(height() - event->y()) + event->x()) + 1];
+    if(r >= 0 && g >= 0)
+    {
+        m_invPickX = 2*r - 1;
+        m_invPickY = 2*g - 1;
+    }
+    delete[] fInv;
+
+    m_pickerFBO->release();
+    updateGL();
 }
 
 
@@ -269,18 +362,14 @@ void FlameViewWidget::mouseMoveEvent(QMouseEvent* event)
     switch(m_editMode)
     {
         case Mode_Translate:
-            map.c += 4.0*dx;
-            map.f += 4.0*dy;
+            map.c.x += 4.0*dx;
+            map.c.y += 4.0*dy;
             break;
         case Mode_Scale:
-//            map.a += 4*dx;
-//            map.b += 4*dy;
-//            map.d += 4*dx;
-//            map.e += 4*dy;
-            map.a *= (1 + 2*dx);
-            map.b *= (1 + 2*dx);
-            map.d *= (1 + 2*dy);
-            map.e *= (1 + 2*dy);
+            map.m.a *= (1 + 2*dx);
+            map.m.b *= (1 + 2*dx);
+            map.m.c *= (1 + 2*dy);
+            map.m.d *= (1 + 2*dy);
             break;
         case Mode_Rotate:
             break;
@@ -295,12 +384,16 @@ QSize FlameViewWidget::sizeHint() const
     return QSize(640, 480);
 }
 
-
-void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
+void FlameViewWidget::loadScreenCoords() const
 {
     glLoadIdentity();
     float aspect = float(width())/height();
-    glScalef(0.5/aspect, 0.5, 1);
+    glScalef(1/(m_screenYMax*aspect), 1/m_screenYMax, 1);
+}
+
+void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
+{
+    loadScreenCoords();
 
     const std::vector<FlameMapping>& maps = flameMaps->maps;
 
@@ -317,7 +410,7 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
             c = 0.2*c;
         glColor3f(c.x, c.y, c.z);
         glBegin(GL_LINES);
-        const int N = 10;
+        const int N = 30;
         for(int j = 0; j <= N; ++j)
         for(int i = 1; i <= N; ++i)
         {
@@ -340,6 +433,14 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
         }
         glEnd();
     }
+
+    const FlameMapping& m = maps[m_mapToEdit];
+    V2f res = m.map(V2f(m_invPickX, m_invPickY));
+    glPointSize(10);
+    glColor3f(1,1,1);
+    glBegin(GL_POINTS);
+        glVertex2f(res.x, res.y);
+    glEnd();
 
     glDisable(GL_BLEND);
     glDisable(GL_LINE_SMOOTH);
