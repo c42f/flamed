@@ -64,6 +64,7 @@ FlameViewWidget::FlameViewWidget()
     m_editMode(Mode_Translate),
     m_mapToEdit(0),
     m_lastPos(),
+    m_invPick(1),
     m_screenYMax(2),
     m_frameTimer(),
     m_hdriExposure(1),
@@ -76,34 +77,26 @@ FlameViewWidget::FlameViewWidget()
     m_frameTimer->setSingleShot(false);
     m_frameTimer->start(0);
     connect(m_frameTimer, SIGNAL(timeout()), this, SLOT(updateGL()));
-    m_flameMaps->maps.resize(2);
+    m_flameMaps->maps.resize(3);
     m_flameMaps->maps[0].m = M22f(0.6, 0, 0, 0.6);
     m_flameMaps->maps[0].c = V2f(0.5, 0.5);
     m_flameMaps->maps[0].col = C3f(1,0,0);
     m_flameMaps->maps[0].variation = 0;
 
-//    m_flameMaps->maps[1].m = M22f(0, 1, -1, 0);
-    m_flameMaps->maps[1].m = M22f(0.4, 0.4, -0.5, 0.5);
+    m_flameMaps->maps[1].m = M22f(0.5, 0.5, -0.5, 0.5);
     m_flameMaps->maps[1].c = V2f(-0.5, 0);
     m_flameMaps->maps[1].col = C3f(0,0,1);
-    m_flameMaps->maps[1].variation = 0;
+    m_flameMaps->maps[1].variation = 3;
 
-//    m_flameMaps->maps[2].col = C3f(0,1,0);
-//    m_flameMaps->maps[2].a = -0.4;
-//    m_flameMaps->maps[2].b = 0.4;
-//    m_flameMaps->maps[2].d = 0.5;
-//    m_flameMaps->maps[2].e = -0.3;
-
-//    m_flameMaps->maps[3].col = C3f(1,1,1);
+    m_flameMaps->maps[2].m = M22f(0, 4, -1, 0);
+    m_flameMaps->maps[2].c = V2f(0,0);
+    m_flameMaps->maps[2].col = C3f(1);
+    m_flameMaps->maps[2].variation = 0;
 }
 
 
 void FlameViewWidget::initializeGL()
 {
-//    GLenum glewErr = glewInit();
-//    if(glewErr != GLEW_OK)
-//        std::cerr << "GLEW init error " << glewGetErrorString(glewErr) << "\n";
-
     m_hdriProgram.reset(new QGLShaderProgram);
 
     if(!m_hdriProgram->addShaderFromSourceFile(QGLShader::Fragment, "../hdri.glsl"))
@@ -234,9 +227,20 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
     else if(event->key() == Qt::Key_T)
         m_editMode = Mode_Translate;
     else if(event->key() == Qt::Key_S)
+    {
         m_editMode = Mode_Scale;
+        m_invPick = V2f(1);
+    }
     else if(event->key() == Qt::Key_R)
         m_editMode = Mode_Rotate;
+    else if(event->key() == Qt::Key_Tab)
+    {
+        if(event->modifiers() | Qt::ControlModifier)
+            ++m_mapToEdit;
+        else
+            --m_mapToEdit;
+        m_mapToEdit = (m_mapToEdit + m_flameMaps->maps.size()) % m_flameMaps->maps.size();
+    }
     else if(event->key() == Qt::Key_P)
     {
         // get file name
@@ -257,7 +261,6 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
     event->ignore();
 //    std::cout << m_hdriExposure << "  " << m_hdriPow << "\n";
 }
-
 
 void FlameViewWidget::mousePressEvent(QMouseEvent* event)
 {
@@ -329,26 +332,25 @@ void FlameViewWidget::mousePressEvent(QMouseEvent* event)
 //    float fInv[3] = {0};
     glBindTexture(GL_TEXTURE_2D, m_pickerFBO->texture());
     glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, fInv);
-//    m_invPickX = fInv[0];
-//    m_invPickY = fInv[1];
+//    m_invPick.x = fInv[0];
+//    m_invPick.y = fInv[1];
     float r = fInv[3*(width()*(height() - event->y()) + event->x())];
     float g = fInv[3*(width()*(height() - event->y()) + event->x()) + 1];
     if(r >= 0 && g >= 0)
     {
-        m_invPickX = 2*r - 1;
-        m_invPickY = 2*g - 1;
+        m_invPick.x = 2*r - 1;
+        m_invPick.y = 2*g - 1;
     }
     delete[] fInv;
 
+    if(m_editMode == Mode_Scale)
+    {
+        m_invPick.x = m_invPick.x > 0 ? 1 : -1;
+        m_invPick.y = m_invPick.y > 0 ? 1 : -1;
+    }
+
     m_pickerFBO->release();
     updateGL();
-}
-
-
-void FlameViewWidget::wheelEvent(QWheelEvent* event)
-{
-    m_mapToEdit += event->delta() > 0 ? 1 : -1;
-    m_mapToEdit = (m_mapToEdit + m_flameMaps->maps.size()) % m_flameMaps->maps.size();
 }
 
 
@@ -362,16 +364,34 @@ void FlameViewWidget::mouseMoveEvent(QMouseEvent* event)
     switch(m_editMode)
     {
         case Mode_Translate:
-            map.c.x += 4.0*dx;
-            map.c.y += 4.0*dy;
+            {
+                V2f df = 4*V2f(dx, dy);
+                M22f dfdc = transDeriv(map, m_invPick);
+                V2f dc = dfdc.inv()*df;
+                if(dc.length() > 2)
+                    dc *= 2/dc.length();
+                map.c += dc;
+            }
             break;
         case Mode_Scale:
-            map.m.a *= (1 + 2*dx);
-            map.m.b *= (1 + 2*dx);
-            map.m.c *= (1 + 2*dy);
-            map.m.d *= (1 + 2*dy);
+            {
+                V2f df = 4*V2f(dx, dy);
+                M22f dfdad = scaleDeriv(map, m_invPick);
+                V2f d_ad = dfdad.inv()*df;
+                map.m.a *= (1+d_ad.x);
+                map.m.c *= (1+d_ad.x);
+                map.m.b *= (1+d_ad.y);
+                map.m.d *= (1+d_ad.y);
+            }
             break;
         case Mode_Rotate:
+            {
+                V2f df = 4*V2f(dx, dy);
+                V2f dfdtheta = rotateDeriv(map, m_invPick);
+                float dtheta = dot(df, dfdtheta) / dot(dfdtheta, dfdtheta);
+                map.m *= M22f( cos(dtheta), sin(dtheta),
+                              -sin(dtheta), cos(dtheta));
+            }
             break;
     }
     m_lastPos = event->pos();
@@ -407,11 +427,11 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
         const FlameMapping& m = maps[k];
         C3f c = m.col;
         if(k != m_mapToEdit)
-            c = 0.2*c;
-        glColor3f(c.x, c.y, c.z);
+            c = 0.5*c;
+        glColor(c);
         glBegin(GL_LINES);
         const int N = 30;
-        for(int j = 0; j <= N; ++j)
+        for(int j = 0; j <= N; j+=N)
         for(int i = 1; i <= N; ++i)
         {
             V2f p0(2.0*(i-1)/N - 1, 2.0*j/N - 1);
@@ -422,7 +442,7 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
             glVertex2f(p1.x, p1.y);
         }
         for(int j = 1; j <= N; ++j)
-        for(int i = 0; i <= N; ++i)
+        for(int i = 0; i <= N; i+=N)
         {
             V2f p0(2.0*i/N - 1, 2.0*(j-1)/N - 1);
             V2f p1(2.0*i/N - 1, 2.0*j    /N - 1);
@@ -434,10 +454,11 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
         glEnd();
     }
 
+    // Plot position if transformation handle
     const FlameMapping& m = maps[m_mapToEdit];
-    V2f res = m.map(V2f(m_invPickX, m_invPickY));
+    V2f res = m.map(m_invPick);
     glPointSize(10);
-    glColor3f(1,1,1);
+    glColor(C3f(1));
     glBegin(GL_POINTS);
         glVertex2f(res.x, res.y);
     glEnd();

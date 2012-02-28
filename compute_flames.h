@@ -11,6 +11,7 @@
 
 #include <QtOpenGL/qgl.h>
 
+#include "util.h"
 
 // Thin wrapper around OpenGL vertex buffer object.
 //
@@ -78,77 +79,6 @@ class VertexBufferObject
 };
 
 
-// Simplistic 3 component color
-struct C3f
-{
-    float x,y,z;
-    C3f() {}
-    explicit C3f(float v) : x(v), y(v), z(v) {}
-    C3f(float x, float y, float z) : x(x), y(y), z(z) {}
-};
-inline C3f operator+(const C3f& c1, const C3f& c2)
-{
-    return C3f(c1.x + c2.x, c1.y + c2.y, c1.z + c2.z);
-}
-inline C3f operator*(float a, const C3f& c)
-{
-    return C3f(c.x*a, c.y*a, c.z*a);
-}
-inline C3f operator*(const C3f& c, float a)
-{
-    return a*c;
-}
-
-
-// Simplistic two-component vector class
-struct V2f
-{
-    float x,y;
-    V2f() {}
-    explicit V2f(float v) : x(v), y(v) {}
-    V2f(float x, float y) : x(x), y(y) {}
-};
-inline V2f operator+(const V2f& c1, const V2f& c2)
-{
-    return V2f(c1.x + c2.x, c1.y + c2.y);
-}
-inline V2f operator-(const V2f& c1, const V2f& c2)
-{
-    return V2f(c1.x - c2.x, c1.y - c2.y);
-}
-inline V2f operator*(float a, const V2f& c)
-{
-    return V2f(c.x*a, c.y*a);
-}
-inline V2f operator*(const V2f& c, float a)
-{
-    return a*c;
-}
-inline float cross(V2f& a, V2f b)
-{
-    return a.x*b.y - b.x*a.y;
-}
-inline void glVertex(const V2f& v)
-{
-    return glVertex2f(v.x, v.y);
-}
-
-
-// Simplistic 2x2 matrix
-struct M22f
-{
-    float a,b,
-          c,d;
-    explicit M22f(float x = 1)
-        : a(x), b(0), c(0), d(x) {}
-    explicit M22f(float a, float b, float c, float d)
-        : a(a), b(b), c(c), d(d) {}
-};
-inline V2f operator*(const M22f& m, const V2f& p)
-{
-    return V2f(m.a*p.x + m.b*p.y, m.c*p.x + m.d*p.y);
-}
-
 // Point data for IFS mapping
 struct IFSPoint
 {
@@ -210,13 +140,51 @@ struct FlameMapping
             case 5: return mapV5(p);
         }
     }
-
-//    M22f deriv(V2f p) const
-//    {
-//        return m;
-//    }
 };
 
+
+inline M22f transDeriv(FlameMapping m, V2f p)
+{
+    const float delta = 0.001;
+    V2f r0 = m.map(p);
+    m.c.x += delta;
+    V2f r1 = m.map(p);
+    m.c.x -= delta;
+    m.c.y += delta;
+    V2f r2 = m.map(p);
+    V2f drdx = (r1 - r0)/delta;
+    V2f drdy = (r2 - r0)/delta;
+    return M22f(drdx.x, drdy.x,
+                drdx.y, drdy.y);
+}
+
+inline M22f scaleDeriv(FlameMapping m, V2f p)
+{
+    const float delta = 0.001;
+    V2f r0 = m.map(p);
+    m.m.a *= (1+delta);
+    m.m.c *= (1+delta);
+    V2f r1 = m.map(p);
+    m.m.a /= (1+delta);
+    m.m.c /= (1+delta);
+    m.m.b *= (1+delta);
+    m.m.d *= (1+delta);
+    V2f r2 = m.map(p);
+    V2f drdx = (r1 - r0)/delta;
+    V2f drdy = (r2 - r0)/delta;
+    return M22f(drdx.x, drdy.x,
+                drdx.y, drdy.y);
+}
+
+inline V2f rotateDeriv(FlameMapping m, V2f p)
+{
+    const float delta = 0.001;
+    V2f r0 = m.map(p);
+    m.m *= M22f( cos(delta), sin(delta),
+                -sin(delta), cos(delta));
+    V2f r1 = m.map(p);
+    return (r1 - r0)/delta;
+}
 
 struct FlameMaps
 {

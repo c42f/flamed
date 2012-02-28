@@ -2,6 +2,8 @@
 #include <tr1/memory>
 #include <complex>
 
+#include "util.h"
+
 typedef std::complex<double> complex;
 
 class QGLShaderProgram;
@@ -29,7 +31,6 @@ class FlameViewWidget : public QGLWidget
         // User events
         void keyPressEvent(QKeyEvent* event);
         void mousePressEvent(QMouseEvent* event);
-        void wheelEvent(QWheelEvent* event);
         void mouseMoveEvent(QMouseEvent* event);
 
         QSize sizeHint() const;
@@ -57,8 +58,7 @@ class FlameViewWidget : public QGLWidget
         EditMode m_editMode;
         int m_mapToEdit;
         QPoint m_lastPos;
-        float m_invPickX;
-        float m_invPickY;
+        V2f m_invPick;
 
         float m_screenYMax;
         QTimer* m_frameTimer;
