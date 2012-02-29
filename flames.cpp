@@ -81,17 +81,17 @@ FlameViewWidget::FlameViewWidget()
     m_flameMaps->maps[0].m = M22f(0.6, 0, 0, 0.6);
     m_flameMaps->maps[0].c = V2f(0.5, 0.5);
     m_flameMaps->maps[0].col = C3f(1,0,0);
-    m_flameMaps->maps[0].variation = 0;
+    m_flameMaps->maps[0].variation = 1;
 
     m_flameMaps->maps[1].m = M22f(0.5, 0.5, -0.5, 0.5);
     m_flameMaps->maps[1].c = V2f(-0.5, 0);
-    m_flameMaps->maps[1].col = C3f(0,0,1);
-    m_flameMaps->maps[1].variation = 3;
+    m_flameMaps->maps[1].col = C3f(1,1,1);
+    m_flameMaps->maps[1].variation = 4;
 
     m_flameMaps->maps[2].m = M22f(0, 4, -1, 0);
     m_flameMaps->maps[2].c = V2f(0,0);
     m_flameMaps->maps[2].col = C3f(1);
-    m_flameMaps->maps[2].variation = 0;
+    m_flameMaps->maps[2].variation = 4;
 }
 
 
@@ -389,8 +389,8 @@ void FlameViewWidget::mouseMoveEvent(QMouseEvent* event)
                 V2f df = 4*V2f(dx, dy);
                 V2f dfdtheta = rotateDeriv(map, m_invPick);
                 float dtheta = dot(df, dfdtheta) / dot(dfdtheta, dfdtheta);
-                map.m *= M22f( cos(dtheta), sin(dtheta),
-                              -sin(dtheta), cos(dtheta));
+                map.m = M22f( cos(dtheta), sin(dtheta),
+                             -sin(dtheta), cos(dtheta)) * map.m;
             }
             break;
     }

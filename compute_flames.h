@@ -180,8 +180,8 @@ inline V2f rotateDeriv(FlameMapping m, V2f p)
 {
     const float delta = 0.001;
     V2f r0 = m.map(p);
-    m.m *= M22f( cos(delta), sin(delta),
-                -sin(delta), cos(delta));
+    m.m = M22f( cos(delta), sin(delta),
+               -sin(delta), cos(delta)) * m.m;
     V2f r1 = m.map(p);
     return (r1 - r0)/delta;
 }
