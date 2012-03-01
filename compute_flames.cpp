@@ -1,5 +1,74 @@
 #include "compute_flames.h"
 
+
+void FlameMapping::translate(V2f p, V2f df, bool editPreTrans)
+{
+    FlameMapping tmpMap = *this;
+    AffineMap& aff = editPreTrans ? tmpMap.preMap : tmpMap.postMap;
+    const float delta = 0.001;
+    V2f r0 = tmpMap.map(p);
+    aff.c.x += delta;
+    V2f r1 = tmpMap.map(p);
+    aff.c.x -= delta;
+    aff.c.y += delta;
+    V2f r2 = tmpMap.map(p);
+    V2f drdx = (r1 - r0)/delta;
+    V2f drdy = (r2 - r0)/delta;
+    M22f dfdc(drdx.x, drdy.x,
+                drdx.y, drdy.y);
+    V2f dc = dfdc.inv()*df;
+    const float maxLength = 2;
+    if(dc.length() > maxLength)
+        dc *= maxLength/dc.length();
+    AffineMap& thisAff = editPreTrans ? preMap : postMap;
+    thisAff.c += dc;
+}
+
+void FlameMapping::scale(V2f p, V2f df, bool editPreTrans)
+{
+    FlameMapping tmpMap = *this;
+    AffineMap& aff = editPreTrans ? tmpMap.preMap : tmpMap.postMap;
+    const float delta = 0.001;
+    V2f r0 = tmpMap.map(p);
+    aff.m.a *= (1+delta);
+    aff.m.c *= (1+delta);
+    V2f r1 = tmpMap.map(p);
+    aff.m.a /= (1+delta);
+    aff.m.c /= (1+delta);
+    aff.m.b *= (1+delta);
+    aff.m.d *= (1+delta);
+    V2f r2 = tmpMap.map(p);
+    V2f drdx = (r1 - r0)/delta;
+    V2f drdy = (r2 - r0)/delta;
+    M22f dfdad(drdx.x, drdy.x,
+                drdx.y, drdy.y);
+    V2f d_ad = dfdad.inv()*df;
+    AffineMap& thisAff = editPreTrans ? preMap : postMap;
+    thisAff.m.a *= (1+d_ad.x);
+    thisAff.m.c *= (1+d_ad.x);
+    thisAff.m.b *= (1+d_ad.y);
+    thisAff.m.d *= (1+d_ad.y);
+}
+
+void FlameMapping::rotate(V2f p, V2f df, bool editPreTrans)
+{
+    FlameMapping tmpMap = *this;
+    AffineMap& aff = editPreTrans ? tmpMap.preMap : tmpMap.postMap;
+    const float delta = 0.001;
+    V2f r0 = tmpMap.map(p);
+    aff.m = M22f( cos(delta), sin(delta),
+            -sin(delta), cos(delta)) * aff.m;
+    V2f r1 = tmpMap.map(p);
+    V2f dfdtheta = (r1 - r0)/delta;
+    float dtheta = dot(df, dfdtheta) / dot(dfdtheta, dfdtheta);
+    AffineMap& thisAff = editPreTrans ? preMap : postMap;
+    thisAff.m = M22f( cos(dtheta), sin(dtheta),
+                        -sin(dtheta), cos(dtheta)) * thisAff.m;
+}
+
+
+
+//------------------------------------------------------------------------------
 void computeFractalFlame(PointVBO* points, const FlameMaps& flameMaps)
 {
     IFSPoint* ptData = points->mapBuffer(GL_WRITE_ONLY);

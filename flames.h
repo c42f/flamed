@@ -64,6 +64,7 @@ class FlameViewWidget : public QGLWidget
         bool m_editMaps;
         EditMode m_editMode;
         int m_mapToEdit;
+        bool m_editPreTransform;
         QPoint m_lastPos;
         V2f m_invPick;
 

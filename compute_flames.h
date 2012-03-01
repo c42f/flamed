@@ -89,15 +89,37 @@ struct IFSPoint
 typedef VertexBufferObject<IFSPoint> PointVBO;
 
 
-// Definition of a fractal flame mapping
-struct FlameMapping
+struct AffineMap
 {
     M22f m;
     V2f c;
+
+    enum InitTag { Init };
+
+    AffineMap() {}
+    AffineMap(InitTag /*init*/) : m(1), c(0) {}
+
+    V2f map(V2f p) const
+    {
+        return m*p + c;
+    }
+};
+
+
+// Definition of a fractal flame mapping
+struct FlameMapping
+{
+    AffineMap preMap;
+    AffineMap postMap;
     C3f col;
     int variation;
 
-    FlameMapping() : m(1), c(0), col(1), variation(0) {}
+    FlameMapping()
+        : preMap(AffineMap::Init),
+        postMap(AffineMap::Init),
+        col(1),
+        variation(0)
+    {}
 
     V2f mapV1(V2f p) const
     {
@@ -129,62 +151,26 @@ struct FlameMapping
 
     V2f map(V2f p) const
     {
-        p = m*p + c;
+        p = preMap.map(p);
         switch(variation)
         {
-            default: return p;
-            case 1: return mapV1(p);
-            case 2: return mapV2(p);
-            case 3: return mapV3(p);
-            case 4: return mapV4(p);
-            case 5: return mapV5(p);
+            case 1: p = mapV1(p); break;
+            case 2: p = mapV2(p); break;
+            case 3: p = mapV3(p); break;
+            case 4: p = mapV4(p); break;
+            case 5: p = mapV5(p); break;
+            default:              break;
         }
+        p = postMap.map(p);
+        return p;
     }
+
+    // Transformations.
+    void translate(V2f p, V2f df, bool editPreTrans);
+    void scale(V2f p, V2f df, bool editPreTrans);
+    void rotate(V2f p, V2f df, bool editPreTrans);
 };
 
-
-inline M22f transDeriv(FlameMapping m, V2f p)
-{
-    const float delta = 0.001;
-    V2f r0 = m.map(p);
-    m.c.x += delta;
-    V2f r1 = m.map(p);
-    m.c.x -= delta;
-    m.c.y += delta;
-    V2f r2 = m.map(p);
-    V2f drdx = (r1 - r0)/delta;
-    V2f drdy = (r2 - r0)/delta;
-    return M22f(drdx.x, drdy.x,
-                drdx.y, drdy.y);
-}
-
-inline M22f scaleDeriv(FlameMapping m, V2f p)
-{
-    const float delta = 0.001;
-    V2f r0 = m.map(p);
-    m.m.a *= (1+delta);
-    m.m.c *= (1+delta);
-    V2f r1 = m.map(p);
-    m.m.a /= (1+delta);
-    m.m.c /= (1+delta);
-    m.m.b *= (1+delta);
-    m.m.d *= (1+delta);
-    V2f r2 = m.map(p);
-    V2f drdx = (r1 - r0)/delta;
-    V2f drdy = (r2 - r0)/delta;
-    return M22f(drdx.x, drdy.x,
-                drdx.y, drdy.y);
-}
-
-inline V2f rotateDeriv(FlameMapping m, V2f p)
-{
-    const float delta = 0.001;
-    V2f r0 = m.map(p);
-    m.m = M22f( cos(delta), sin(delta),
-               -sin(delta), cos(delta)) * m.m;
-    V2f r1 = m.map(p);
-    return (r1 - r0)/delta;
-}
 
 struct FlameMaps
 {

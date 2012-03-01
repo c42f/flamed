@@ -62,20 +62,14 @@ shared_ptr<FlameMaps> FlameViewWidget::initMaps()
     shared_ptr<FlameMaps> maps(new FlameMaps());
 
     maps->maps.resize(3);
-    maps->maps[0].m = M22f(0.6, 0, 0, 0.6);
-    maps->maps[0].c = V2f(0.5, 0.5);
     maps->maps[0].col = C3f(1,0,0);
-    maps->maps[0].variation = 1;
+    maps->maps[0].variation = 2;
 
-    maps->maps[1].m = M22f(0.5, 0.5, -0.5, 0.5);
-    maps->maps[1].c = V2f(-0.5, 0);
     maps->maps[1].col = C3f(1,1,1);
-    maps->maps[1].variation = 4;
+    maps->maps[1].variation = 3;
 
-    maps->maps[2].m = M22f(0, 4, -1, 0);
-    maps->maps[2].c = V2f(0,0);
     maps->maps[2].col = C3f(1);
-    maps->maps[2].variation = 4;
+    maps->maps[2].variation = 3;
 
     return maps;
 }
@@ -89,6 +83,7 @@ FlameViewWidget::FlameViewWidget()
     m_editMaps(true),
     m_editMode(Mode_Translate),
     m_mapToEdit(0),
+    m_editPreTransform(true),
     m_lastPos(),
     m_invPick(1),
     m_screenYMax(2),
@@ -235,6 +230,8 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
         m_hdriPow /= 1.5;
     else if(event->key() == Qt::Key_E)
         m_editMaps = !m_editMaps;
+    else if(event->key() == Qt::Key_A)
+        m_editPreTransform = !m_editPreTransform;
     else if(event->key() >= Qt::Key_1 && event->key() <= Qt::Key_9)
         m_mapToEdit = std::min((int)m_flameMaps->maps.size()-1,
                                event->key() - Qt::Key_1);
@@ -398,38 +395,12 @@ void FlameViewWidget::mouseMoveEvent(QMouseEvent* event)
     float aspect = float(width())/height();
     float dx = aspect*delta.x()/width();
     float dy = -float(delta.y())/height();
+    V2f df = 4*V2f(dx, dy);
     switch(m_editMode)
     {
-        case Mode_Translate:
-            {
-                V2f df = 4*V2f(dx, dy);
-                M22f dfdc = transDeriv(map, m_invPick);
-                V2f dc = dfdc.inv()*df;
-                if(dc.length() > 2)
-                    dc *= 2/dc.length();
-                map.c += dc;
-            }
-            break;
-        case Mode_Scale:
-            {
-                V2f df = 4*V2f(dx, dy);
-                M22f dfdad = scaleDeriv(map, m_invPick);
-                V2f d_ad = dfdad.inv()*df;
-                map.m.a *= (1+d_ad.x);
-                map.m.c *= (1+d_ad.x);
-                map.m.b *= (1+d_ad.y);
-                map.m.d *= (1+d_ad.y);
-            }
-            break;
-        case Mode_Rotate:
-            {
-                V2f df = 4*V2f(dx, dy);
-                V2f dfdtheta = rotateDeriv(map, m_invPick);
-                float dtheta = dot(df, dfdtheta) / dot(dfdtheta, dfdtheta);
-                map.m = M22f( cos(dtheta), sin(dtheta),
-                             -sin(dtheta), cos(dtheta)) * map.m;
-            }
-            break;
+        case Mode_Translate: map.translate(m_invPick, df, m_editPreTransform); break;
+        case Mode_Scale:     map.scale    (m_invPick, df, m_editPreTransform); break;
+        case Mode_Rotate:    map.rotate   (m_invPick, df, m_editPreTransform); break;
     }
     m_lastPos = event->pos();
     clearAccumulator();
