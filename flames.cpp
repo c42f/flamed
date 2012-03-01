@@ -57,9 +57,35 @@ inline float radicalInverse(int n)
 }
 
 
+std::tr1::shared_ptr<FlameMaps> FlameViewWidget::initMaps()
+{
+    std::tr1::shared_ptr<FlameMaps> maps(new FlameMaps());
+
+    maps->maps.resize(3);
+    maps->maps[0].m = M22f(0.6, 0, 0, 0.6);
+    maps->maps[0].c = V2f(0.5, 0.5);
+    maps->maps[0].col = C3f(1,0,0);
+    maps->maps[0].variation = 1;
+
+    maps->maps[1].m = M22f(0.5, 0.5, -0.5, 0.5);
+    maps->maps[1].c = V2f(-0.5, 0);
+    maps->maps[1].col = C3f(1,1,1);
+    maps->maps[1].variation = 4;
+
+    maps->maps[2].m = M22f(0, 4, -1, 0);
+    maps->maps[2].c = V2f(0,0);
+    maps->maps[2].col = C3f(1);
+    maps->maps[2].variation = 4;
+
+    return maps;
+}
+
+
 //------------------------------------------------------------------------------
 FlameViewWidget::FlameViewWidget()
-    : m_flameMaps(new FlameMaps()),
+    : m_flameMaps(initMaps()),
+    m_undoList(),
+    m_redoList(),
     m_editMaps(true),
     m_editMode(Mode_Translate),
     m_mapToEdit(0),
@@ -71,27 +97,14 @@ FlameViewWidget::FlameViewWidget()
     m_hdriPow(1),
     m_nPasses(0)
 {
+    m_undoList.push_back(std::tr1::shared_ptr<FlameMaps>(new FlameMaps(*m_flameMaps)));
+
     // Install timer with zero timeout to continuously insert extra points into
     // the FBO.
     m_frameTimer = new QTimer(this);
     m_frameTimer->setSingleShot(false);
     m_frameTimer->start(0);
     connect(m_frameTimer, SIGNAL(timeout()), this, SLOT(updateGL()));
-    m_flameMaps->maps.resize(3);
-    m_flameMaps->maps[0].m = M22f(0.6, 0, 0, 0.6);
-    m_flameMaps->maps[0].c = V2f(0.5, 0.5);
-    m_flameMaps->maps[0].col = C3f(1,0,0);
-    m_flameMaps->maps[0].variation = 1;
-
-    m_flameMaps->maps[1].m = M22f(0.5, 0.5, -0.5, 0.5);
-    m_flameMaps->maps[1].c = V2f(-0.5, 0);
-    m_flameMaps->maps[1].col = C3f(1,1,1);
-    m_flameMaps->maps[1].variation = 4;
-
-    m_flameMaps->maps[2].m = M22f(0, 4, -1, 0);
-    m_flameMaps->maps[2].c = V2f(0,0);
-    m_flameMaps->maps[2].col = C3f(1);
-    m_flameMaps->maps[2].variation = 4;
 }
 
 
@@ -223,7 +236,8 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
     else if(event->key() == Qt::Key_E)
         m_editMaps = !m_editMaps;
     else if(event->key() >= Qt::Key_1 && event->key() <= Qt::Key_9)
-        m_mapToEdit = std::min((int)m_flameMaps->maps.size()-1, event->key() - Qt::Key_1);
+        m_mapToEdit = std::min((int)m_flameMaps->maps.size()-1,
+                               event->key() - Qt::Key_1);
     else if(event->key() == Qt::Key_T)
         m_editMode = Mode_Translate;
     else if(event->key() == Qt::Key_S)
@@ -239,7 +253,8 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
             ++m_mapToEdit;
         else
             --m_mapToEdit;
-        m_mapToEdit = (m_mapToEdit + m_flameMaps->maps.size()) % m_flameMaps->maps.size();
+        m_mapToEdit = (m_mapToEdit + m_flameMaps->maps.size()) %
+                      m_flameMaps->maps.size();
     }
     else if(event->key() == Qt::Key_P)
     {
@@ -258,6 +273,28 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
     }
     else if(event->key() == Qt::Key_Escape)
         close();
+    else if(event->key() == Qt::Key_Z &&
+            event->modifiers() == Qt::ControlModifier)
+    {
+        if(m_undoList.size() > 1)
+        {
+            m_redoList.push_back(m_undoList.back());
+            m_undoList.pop_back();
+            *m_flameMaps = *m_undoList.back();
+            clearAccumulator();
+        }
+    }
+    else if(event->key() == Qt::Key_Z && event->modifiers() ==
+            (Qt::ControlModifier | Qt::ShiftModifier))
+    {
+        if(!m_redoList.empty())
+        {
+            m_undoList.push_back(m_redoList.back());
+            m_redoList.pop_back();
+            *m_flameMaps = *m_undoList.back();
+            clearAccumulator();
+        }
+    }
     event->ignore();
 //    std::cout << m_hdriExposure << "  " << m_hdriPow << "\n";
 }
@@ -399,10 +436,19 @@ void FlameViewWidget::mouseMoveEvent(QMouseEvent* event)
 }
 
 
+void FlameViewWidget::mouseReleaseEvent(QMouseEvent* event)
+{
+    m_redoList.clear();
+    m_undoList.push_back(m_flameMaps);
+    m_flameMaps.reset(new FlameMaps(*m_flameMaps));
+}
+
+
 QSize FlameViewWidget::sizeHint() const
 {
     return QSize(640, 480);
 }
+
 
 void FlameViewWidget::loadScreenCoords() const
 {
@@ -410,6 +456,7 @@ void FlameViewWidget::loadScreenCoords() const
     float aspect = float(width())/height();
     glScalef(1/(m_screenYMax*aspect), 1/m_screenYMax, 1);
 }
+
 
 void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
 {

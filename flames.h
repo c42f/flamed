@@ -32,6 +32,7 @@ class FlameViewWidget : public QGLWidget
         void keyPressEvent(QKeyEvent* event);
         void mousePressEvent(QMouseEvent* event);
         void mouseMoveEvent(QMouseEvent* event);
+        void mouseReleaseEvent(QMouseEvent* event);
 
         QSize sizeHint() const;
 
@@ -43,6 +44,7 @@ class FlameViewWidget : public QGLWidget
             Mode_Scale
         };
 
+        static std::tr1::shared_ptr<FlameMaps> initMaps();
         void loadScreenCoords() const;
         void drawMaps(const FlameMaps* flameMaps);
         void clearAccumulator();
@@ -53,6 +55,8 @@ class FlameViewWidget : public QGLWidget
         std::tr1::shared_ptr<QGLFramebufferObject> m_pickerFBO;
         std::tr1::shared_ptr<PointVBO> m_ifsPoints;
         std::tr1::shared_ptr<FlameMaps> m_flameMaps;
+        std::vector<std::tr1::shared_ptr<FlameMaps> > m_undoList;
+        std::vector<std::tr1::shared_ptr<FlameMaps> > m_redoList;
 
         bool m_editMaps;
         EditMode m_editMode;
