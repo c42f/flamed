@@ -57,9 +57,9 @@ inline float radicalInverse(int n)
 }
 
 
-std::tr1::shared_ptr<FlameMaps> FlameViewWidget::initMaps()
+shared_ptr<FlameMaps> FlameViewWidget::initMaps()
 {
-    std::tr1::shared_ptr<FlameMaps> maps(new FlameMaps());
+    shared_ptr<FlameMaps> maps(new FlameMaps());
 
     maps->maps.resize(3);
     maps->maps[0].m = M22f(0.6, 0, 0, 0.6);
@@ -97,7 +97,7 @@ FlameViewWidget::FlameViewWidget()
     m_hdriPow(1),
     m_nPasses(0)
 {
-    m_undoList.push_back(std::tr1::shared_ptr<FlameMaps>(new FlameMaps(*m_flameMaps)));
+    m_undoList.push_back(shared_ptr<FlameMaps>(new FlameMaps(*m_flameMaps)));
 
     // Install timer with zero timeout to continuously insert extra points into
     // the FBO.

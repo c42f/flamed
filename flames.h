@@ -4,6 +4,9 @@
 
 #include "util.h"
 
+// Premtive portability consideration: shared_ptr can come from various places.
+using std::tr1::shared_ptr;
+
 typedef std::complex<double> complex;
 
 class QGLShaderProgram;
@@ -44,19 +47,19 @@ class FlameViewWidget : public QGLWidget
             Mode_Scale
         };
 
-        static std::tr1::shared_ptr<FlameMaps> initMaps();
+        static shared_ptr<FlameMaps> initMaps();
         void loadScreenCoords() const;
         void drawMaps(const FlameMaps* flameMaps);
         void clearAccumulator();
 
-        std::tr1::shared_ptr<QGLShaderProgram> m_pointRenderProgram;
-        std::tr1::shared_ptr<QGLShaderProgram> m_hdriProgram;
-        std::tr1::shared_ptr<QGLFramebufferObject> m_pointAccumFBO;
-        std::tr1::shared_ptr<QGLFramebufferObject> m_pickerFBO;
-        std::tr1::shared_ptr<PointVBO> m_ifsPoints;
-        std::tr1::shared_ptr<FlameMaps> m_flameMaps;
-        std::vector<std::tr1::shared_ptr<FlameMaps> > m_undoList;
-        std::vector<std::tr1::shared_ptr<FlameMaps> > m_redoList;
+        shared_ptr<QGLShaderProgram> m_pointRenderProgram;
+        shared_ptr<QGLShaderProgram> m_hdriProgram;
+        shared_ptr<QGLFramebufferObject> m_pointAccumFBO;
+        shared_ptr<QGLFramebufferObject> m_pickerFBO;
+        shared_ptr<PointVBO> m_ifsPoints;
+        shared_ptr<FlameMaps> m_flameMaps;
+        std::vector<shared_ptr<FlameMaps> > m_undoList;
+        std::vector<shared_ptr<FlameMaps> > m_redoList;
 
         bool m_editMaps;
         EditMode m_editMode;
