@@ -63,13 +63,14 @@ shared_ptr<FlameMaps> FlameViewWidget::initMaps()
 
     maps->maps.resize(3);
     maps->maps[0].col = C3f(1,0,0);
-    maps->maps[0].variation = 2;
+    maps->maps[0].variation = 0;
 
-    maps->maps[1].col = C3f(1,1,1);
-    maps->maps[1].variation = 3;
+    maps->maps[1].col = C3f(0,1,0);
+    maps->maps[1].variation = 0;
 
+    maps->maps[2].preMap.m = M22f(0.5);
     maps->maps[2].col = C3f(1);
-    maps->maps[2].variation = 3;
+    maps->maps[2].variation = 0;
 
     return maps;
 }
@@ -238,10 +239,7 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
     else if(event->key() == Qt::Key_T)
         m_editMode = Mode_Translate;
     else if(event->key() == Qt::Key_S)
-    {
         m_editMode = Mode_Scale;
-        m_invPick = V2f(1);
-    }
     else if(event->key() == Qt::Key_R)
         m_editMode = Mode_Rotate;
     else if(event->key() == Qt::Key_Tab)
@@ -261,7 +259,7 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
         QString fName;
         while(true)
         {
-            fName = nameTemplate.arg(idx);
+            fName = nameTemplate.arg(idx, 3, 10, QChar('0'));
             if(!QFileInfo(fName).exists())
                 break;
             ++idx;
@@ -377,11 +375,11 @@ void FlameViewWidget::mousePressEvent(QMouseEvent* event)
     }
     delete[] fInv;
 
-    if(m_editMode == Mode_Scale)
-    {
-        m_invPick.x = m_invPick.x > 0 ? 1 : -1;
-        m_invPick.y = m_invPick.y > 0 ? 1 : -1;
-    }
+//    if(m_editMode == Mode_Scale)
+//    {
+//        m_invPick.x = m_invPick.x > 0 ? 1 : -1;
+//        m_invPick.y = m_invPick.y > 0 ? 1 : -1;
+//    }
 
     m_pickerFBO->release();
     updateGL();

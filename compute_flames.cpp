@@ -84,7 +84,7 @@ void computeFractalFlame(PointVBO* points, const FlameMaps& flameMaps)
         int mapIdx = rand() % nMaps;
         const FlameMapping& m = flameMaps.maps[mapIdx];
         p = m.map(p);
-        col = 0.5*(col + m.col);
+        col = m.colorSpeed*m.col + (1-m.colorSpeed)*col;
         if(i >= 0)
         {
             ptData->pos = p;

@@ -111,61 +111,81 @@ struct FlameMapping
 {
     AffineMap preMap;
     AffineMap postMap;
+    float colorSpeed;
     C3f col;
     int variation;
 
     FlameMapping()
         : preMap(AffineMap::Init),
         postMap(AffineMap::Init),
+        colorSpeed(0.5),
         col(1),
         variation(0)
     {}
 
-    V2f mapV1(V2f p) const
+    V2f nonlinearMap(V2f p) const
     {
-        float s = 1/(p.x*p.x + p.y*p.y);
-        return V2f(s*p.x, s*p.y);
-    }
-
-    V2f mapV2(V2f p) const
-    {
-        float s = exp(p.x - 1);
-        return V2f(s*cos(M_PI*p.y), s*sin(M_PI*p.y));
-    }
-
-    V2f mapV3(V2f p) const
-    {
-        return V2f(sin(p.x)/cos(p.y), tan(p.y));
-    }
-
-    V2f mapV4(V2f p) const
-    {
-        float s = 2/(sqrt(p.x*p.x + p.y*p.y) + 1);
-        return V2f(p.y*s, p.x*s);
-    }
-
-    V2f mapV5(V2f p) const
-    {
-        return V2f(sin(p.x), sin(p.y));
+        float x = p.x;
+        float y = p.y;
+        switch(variation)
+        {
+            case 0:
+            default:
+                return p;
+            case 1: { // Sinusoidal
+                return V2f(sin(x), sin(y));
+            }
+            case 2: { // Spherical
+                float s = 1/(x*x + y*y);
+                return V2f(s*x, s*y);
+            }
+            case 3: { // Swirl
+                float r2 = x*x + y*y;
+                float s = sin(r2), c = cos(r2);
+                return V2f(x*s - y*c, x*c + y*s);
+            }
+            case 4: { // Horseshoe
+                float r = sqrt(x*x + y*y);
+                return 1/r * V2f((x-y)*(x+y), 2*x*y);
+            }
+            case 5: { // Polar
+                float theta = atan2(x,y);
+                float r = sqrt(x*x + y*y);
+                return V2f(theta/M_PI, r - 1);
+            }
+            case 6: { // Handkerchief
+                float theta = atan2(x,y);
+                float r = sqrt(x*x + y*y);
+                return V2f(sin(theta + r), cos(theta - r));
+            }
+            case 7: { // Heart
+                float theta = atan2(x,y);
+                float r = sqrt(x*x + y*y);
+                return r*V2f(sin(theta*r), -cos(theta*r));
+            }
+            case 18: { // Exponential
+                return exp(x - 1) * V2f(cos(M_PI*y), sin(M_PI*y));
+            }
+            case 27: { // Eyefish
+                return 2/(sqrt(x*x + y*y) + 1) * V2f(x, y);
+            }
+            case 42: { // Tangent
+                return V2f(sin(x)/cos(y), tan(y));
+            }
+        }
     }
 
     V2f map(V2f p) const
     {
         p = preMap.map(p);
-        switch(variation)
-        {
-            case 1: p = mapV1(p); break;
-            case 2: p = mapV2(p); break;
-            case 3: p = mapV3(p); break;
-            case 4: p = mapV4(p); break;
-            case 5: p = mapV5(p); break;
-            default:              break;
-        }
+        p = nonlinearMap(p);
         p = postMap.map(p);
         return p;
     }
 
-    // Transformations.
+    // Transform the map such that (map_new(p) - map(p)) ~= df where map_new is
+    // map() after the transformation, and df is the amount the mouse moved in
+    // screen coordinates.
     void translate(V2f p, V2f df, bool editPreTrans);
     void scale(V2f p, V2f df, bool editPreTrans);
     void rotate(V2f p, V2f df, bool editPreTrans);
@@ -175,6 +195,7 @@ struct FlameMapping
 struct FlameMaps
 {
     std::vector<FlameMapping> maps;
+//    FlameMapping finalMap;
 };
 
 
