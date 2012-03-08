@@ -89,23 +89,6 @@ struct IFSPoint
 typedef VertexBufferObject<IFSPoint> PointVBO;
 
 
-struct AffineMap
-{
-    M22f m;
-    V2f c;
-
-    enum InitTag { Init };
-
-    AffineMap() {}
-    AffineMap(InitTag /*init*/) : m(1), c(0) {}
-
-    V2f map(V2f p) const
-    {
-        return m*p + c;
-    }
-};
-
-
 // Definition of a fractal flame mapping
 struct FlameMapping
 {
@@ -123,7 +106,7 @@ struct FlameMapping
         variation(0)
     {}
 
-    V2f nonlinearMap(V2f p) const
+    GPU_HOSTDEV V2f nonlinearMap(V2f p) const
     {
         float x = p.x;
         float y = p.y;
@@ -175,7 +158,7 @@ struct FlameMapping
         }
     }
 
-    V2f map(V2f p) const
+    GPU_HOSTDEV V2f map(V2f p) const
     {
         p = preMap.map(p);
         p = nonlinearMap(p);
@@ -201,5 +184,9 @@ struct FlameMaps
 
 void computeFractalFlame(PointVBO* points, const FlameMaps& flameMaps);
 
+
+void computeFractalFlameGPU(PointVBO* points, const FlameMaps& flameMaps);
+
+void initCuda();
 
 #endif

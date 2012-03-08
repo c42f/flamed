@@ -1,24 +1,54 @@
 #ifndef UTIL_H_INCLUDED
 #define UTIL_H_INCLUDED
 
+#ifdef COMPILE_FOR_GPU
+#   define GPU_HOSTDEV __host__ __device__
+#else
+#   define GPU_HOSTDEV
+#endif
+
+// Compute ceil(real(n)/d) using integers for positive n and d.
+template<typename T>
+inline T ceildiv(T n, T d)
+{
+    return (n-T(1))/d + T(1);
+}
+
+
+// Radical inverse function for simple quasi random number generation
+template<int base>
+GPU_HOSTDEV inline float radicalInverse(int n)
+{
+    float invbase = 1.0 / base;
+    float scale = invbase;
+    float value = 0;
+    for (; n != 0; n /= base)
+    {
+        value += (n % base) * scale;
+        scale *= invbase;
+    }
+    return value;
+}
+
+
 
 // Simplistic 3 component color
 struct C3f
 {
     float x,y,z;
-    C3f() {}
-    explicit C3f(float v) : x(v), y(v), z(v) {}
-    C3f(float x, float y, float z) : x(x), y(y), z(z) {}
+    GPU_HOSTDEV C3f() {}
+    GPU_HOSTDEV explicit C3f(float v) : x(v), y(v), z(v) {}
+    GPU_HOSTDEV C3f(float x, float y, float z) : x(x), y(y), z(z) {}
 };
-inline C3f operator+(const C3f& c1, const C3f& c2)
+GPU_HOSTDEV inline C3f operator+(const C3f& c1, const C3f& c2)
 {
     return C3f(c1.x + c2.x, c1.y + c2.y, c1.z + c2.z);
 }
-inline C3f operator*(float a, const C3f& c)
+GPU_HOSTDEV inline C3f operator*(float a, const C3f& c)
 {
     return C3f(c.x*a, c.y*a, c.z*a);
 }
-inline C3f operator*(const C3f& c, float a)
+GPU_HOSTDEV inline C3f operator*(const C3f& c, float a)
 {
     return a*c;
 }
@@ -32,40 +62,40 @@ inline void glColor(const C3f& c)
 struct V2f
 {
     float x,y;
-    V2f() {}
-    explicit V2f(float v) : x(v), y(v) {}
-    V2f(float x, float y) : x(x), y(y) {}
+    GPU_HOSTDEV V2f() {}
+    GPU_HOSTDEV explicit V2f(float v) : x(v), y(v) {}
+    GPU_HOSTDEV V2f(float x, float y) : x(x), y(y) {}
 
-    float length() const { return sqrt(x*x + y*y); }
+    GPU_HOSTDEV float length() const { return sqrt(x*x + y*y); }
 
-    V2f& operator+=(const V2f& rhs) { x += rhs.x; y += rhs.y; return *this; }
-    V2f& operator*=(float a) { x *= a; y *= a; return *this; }
+    GPU_HOSTDEV V2f& operator+=(const V2f& rhs) { x += rhs.x; y += rhs.y; return *this; }
+    GPU_HOSTDEV V2f& operator*=(float a) { x *= a; y *= a; return *this; }
 };
-inline V2f operator+(const V2f& c1, const V2f& c2)
+GPU_HOSTDEV inline V2f operator+(const V2f& c1, const V2f& c2)
 {
     return V2f(c1.x + c2.x, c1.y + c2.y);
 }
-inline V2f operator-(const V2f& c1, const V2f& c2)
+GPU_HOSTDEV inline V2f operator-(const V2f& c1, const V2f& c2)
 {
     return V2f(c1.x - c2.x, c1.y - c2.y);
 }
-inline V2f operator*(float a, const V2f& c)
+GPU_HOSTDEV inline V2f operator*(float a, const V2f& c)
 {
     return V2f(c.x*a, c.y*a);
 }
-inline V2f operator*(const V2f& c, float a)
+GPU_HOSTDEV inline V2f operator*(const V2f& c, float a)
 {
     return a*c;
 }
-inline V2f operator/(const V2f& c, float a)
+GPU_HOSTDEV inline V2f operator/(const V2f& c, float a)
 {
     return V2f(c.x/a, c.y/a);
 }
-inline float cross(V2f& a, V2f b)
+GPU_HOSTDEV inline float cross(V2f& a, V2f b)
 {
     return a.x*b.y - b.x*a.y;
 }
-inline float dot(const V2f& a, const V2f& b)
+GPU_HOSTDEV inline float dot(const V2f& a, const V2f& b)
 {
     return a.x*b.x + a.y*b.y;
 }
@@ -81,35 +111,52 @@ struct M22f
 {
     float a,b,
           c,d;
-    explicit M22f(float x = 1)
+    GPU_HOSTDEV explicit M22f(float x = 1)
         : a(x), b(0), c(0), d(x) {}
-    explicit M22f(float a, float b, float c, float d)
+    GPU_HOSTDEV explicit M22f(float a, float b, float c, float d)
         : a(a), b(b), c(c), d(d) {}
-    M22f inv() const;
-    M22f& operator*=(const M22f m);
+    GPU_HOSTDEV M22f inv() const;
+    GPU_HOSTDEV M22f& operator*=(const M22f m);
 };
-inline M22f operator*(float s, const M22f& m)
+GPU_HOSTDEV inline M22f operator*(float s, const M22f& m)
 {
     return M22f(s*m.a, s*m.b, s*m.c, s*m.d);
 }
-inline V2f operator*(const M22f& m, const V2f& p)
+GPU_HOSTDEV inline V2f operator*(const M22f& m, const V2f& p)
 {
     return V2f(m.a*p.x + m.b*p.y, m.c*p.x + m.d*p.y);
 }
-inline M22f operator*(const M22f& m1, const M22f& m2)
+GPU_HOSTDEV inline M22f operator*(const M22f& m1, const M22f& m2)
 {
     return M22f(m1.a*m2.a + m1.b*m2.c, m1.a*m2.b + m1.b*m2.d,
                 m1.c*m2.a + m1.d*m2.c, m1.c*m2.b + m1.d*m2.d);
 }
-inline M22f M22f::inv() const
+GPU_HOSTDEV inline M22f M22f::inv() const
 {
     return 1/(a*d - b*c) * M22f(d, -b, -c, a);
 }
-inline M22f& M22f::operator*=(const M22f m)
+GPU_HOSTDEV inline M22f& M22f::operator*=(const M22f m)
 {
     *this = (*this)*m;
     return *this;
 }
+
+
+struct AffineMap
+{
+    M22f m;
+    V2f c;
+
+    enum InitTag { Init };
+
+    GPU_HOSTDEV AffineMap() {}
+    GPU_HOSTDEV AffineMap(InitTag /*init*/) : m(1), c(0) {}
+
+    GPU_HOSTDEV V2f map(V2f p) const
+    {
+        return m*p + c;
+    }
+};
 
 
 #endif // UTIL_H_INCLUDED

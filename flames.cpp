@@ -42,21 +42,6 @@ static void printGlError(const char* tag)
 #endif
 
 
-template<int base>
-inline float radicalInverse(int n)
-{
-    float invbase = 1.0 / base;
-    float scale = invbase;
-    float value = 0;
-    for (; n != 0; n /= base)
-    {
-        value += (n % base) * scale;
-        scale *= invbase;
-    }
-    return value;
-}
-
-
 shared_ptr<FlameMaps> FlameViewWidget::initMaps()
 {
     shared_ptr<FlameMaps> maps(new FlameMaps());
@@ -106,6 +91,7 @@ FlameViewWidget::FlameViewWidget()
 
 void FlameViewWidget::initializeGL()
 {
+    initCuda();
     m_hdriProgram.reset(new QGLShaderProgram);
 
     if(!m_hdriProgram->addShaderFromSourceFile(QGLShader::Fragment, "../hdri.glsl"))
@@ -151,6 +137,9 @@ void FlameViewWidget::resizeGL(int w, int h)
 
 void FlameViewWidget::paintGL()
 {
+    computeFractalFlameGPU(m_ifsPoints.get(), *m_flameMaps);
+    ++m_nPasses;
+
     glClearColor(0,0,0,0);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -167,8 +156,6 @@ void FlameViewWidget::paintGL()
     glColor3f(0.5,0.5,0.5);
     glPointSize(1);
     m_pointRenderProgram->bind();
-    computeFractalFlame(m_ifsPoints.get(), *m_flameMaps);
-    ++m_nPasses;
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     m_ifsPoints->bind();
