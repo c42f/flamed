@@ -98,6 +98,7 @@ struct FlameMapping
     C3f col;
     int variation;
 
+    GPU_HOSTDEV
     FlameMapping()
         : preMap(AffineMap::Init),
         postMap(AffineMap::Init),
@@ -106,7 +107,8 @@ struct FlameMapping
         variation(0)
     {}
 
-    GPU_HOSTDEV V2f nonlinearMap(V2f p) const
+    GPU_HOSTDEV
+    V2f nonlinearMap(V2f p) const
     {
         float x = p.x;
         float y = p.y;
@@ -116,7 +118,7 @@ struct FlameMapping
             default:
                 return p;
             case 1: { // Sinusoidal
-                return V2f(sin(x), sin(y));
+                return V2f(sinf(x), sinf(y));
             }
             case 2: { // Spherical
                 float s = 1/(x*x + y*y);
@@ -124,41 +126,42 @@ struct FlameMapping
             }
             case 3: { // Swirl
                 float r2 = x*x + y*y;
-                float s = sin(r2), c = cos(r2);
+                float s = sinf(r2), c = cosf(r2);
                 return V2f(x*s - y*c, x*c + y*s);
             }
             case 4: { // Horseshoe
-                float r = sqrt(x*x + y*y);
+                float r = sqrtf(x*x + y*y);
                 return 1/r * V2f((x-y)*(x+y), 2*x*y);
             }
             case 5: { // Polar
-                float theta = atan2(x,y);
-                float r = sqrt(x*x + y*y);
+                float theta = atan2f(x,y);
+                float r = sqrtf(x*x + y*y);
                 return V2f(theta/M_PI, r - 1);
             }
             case 6: { // Handkerchief
-                float theta = atan2(x,y);
-                float r = sqrt(x*x + y*y);
-                return V2f(sin(theta + r), cos(theta - r));
+                float theta = atan2f(x,y);
+                float r = sqrtf(x*x + y*y);
+                return V2f(sinf(theta + r), cosf(theta - r));
             }
             case 7: { // Heart
-                float theta = atan2(x,y);
-                float r = sqrt(x*x + y*y);
-                return r*V2f(sin(theta*r), -cos(theta*r));
+                float theta = atan2f(x,y);
+                float r = sqrtf(x*x + y*y);
+                return r*V2f(sinf(theta*r), -cosf(theta*r));
             }
             case 18: { // Exponential
-                return exp(x - 1) * V2f(cos(M_PI*y), sin(M_PI*y));
+                return expf(x - 1) * V2f(cosf(M_PI*y), sinf(M_PI*y));
             }
             case 27: { // Eyefish
-                return 2/(sqrt(x*x + y*y) + 1) * V2f(x, y);
+                return 2/(sqrtf(x*x + y*y) + 1) * V2f(x, y);
             }
             case 42: { // Tangent
-                return V2f(sin(x)/cos(y), tan(y));
+                return V2f(sinf(x)/cosf(y), tanf(y));
             }
         }
     }
 
-    GPU_HOSTDEV V2f map(V2f p) const
+    GPU_HOSTDEV
+    V2f map(V2f p) const
     {
         p = preMap.map(p);
         p = nonlinearMap(p);
@@ -182,11 +185,37 @@ struct FlameMaps
 };
 
 
-void computeFractalFlame(PointVBO* points, const FlameMaps& flameMaps);
+//------------------------------------------------------------------------------
+class FlameEngine
+{
+    public:
+        virtual void generate(PointVBO* points, const FlameMaps& flameMaps) = 0;
+
+        virtual ~FlameEngine() {}
+};
 
 
-void computeFractalFlameGPU(PointVBO* points, const FlameMaps& flameMaps);
+class CPUFlameEngine : public FlameEngine
+{
+    public:
+        virtual void generate(PointVBO* points, const FlameMaps& flameMaps);
+};
+
+
+class GPUFlameEngine : public FlameEngine
+{
+    public:
+        GPUFlameEngine();
+
+        virtual void generate(PointVBO* points, const FlameMaps& flameMaps);
+
+    private:
+        struct Pimpl;
+        shared_ptr<Pimpl> m_pimpl;
+};
+
 
 void initCuda();
 
-#endif
+
+#endif // COMPUTE_FLAME_H_INCLUDED

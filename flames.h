@@ -1,17 +1,11 @@
 #include <QtOpenGL/QGLWidget>
-#include <tr1/memory>
-#include <complex>
 
 #include "util.h"
-
-// Premtive portability consideration: shared_ptr can come from various places.
-using std::tr1::shared_ptr;
-
-typedef std::complex<double> complex;
 
 class QGLShaderProgram;
 class QGLFramebufferObject;
 class QTimer;
+class FlameEngine;
 template<typename> class VertexBufferObject;
 struct IFSPoint;
 typedef VertexBufferObject<IFSPoint> PointVBO;
@@ -58,6 +52,7 @@ class FlameViewWidget : public QGLWidget
         shared_ptr<QGLFramebufferObject> m_pickerFBO;
         shared_ptr<PointVBO> m_ifsPoints;
         shared_ptr<FlameMaps> m_flameMaps;
+        shared_ptr<FlameEngine> m_flameEngine;
         std::vector<shared_ptr<FlameMaps> > m_undoList;
         std::vector<shared_ptr<FlameMaps> > m_redoList;
 

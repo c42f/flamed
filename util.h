@@ -3,9 +3,16 @@
 
 #ifdef COMPILE_FOR_GPU
 #   define GPU_HOSTDEV __host__ __device__
+#   define GPU_HOST __host__
+#   define GPU_DEV __device__
 #else
 #   define GPU_HOSTDEV
 #endif
+
+#include <math.h>
+
+#include <boost/shared_ptr.hpp>
+using boost::shared_ptr; // gcc's tr1::shared_ptr doesn't work with nvcc :(
 
 // Compute ceil(real(n)/d) using integers for positive n and d.
 template<typename T>

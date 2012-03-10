@@ -46,16 +46,27 @@ shared_ptr<FlameMaps> FlameViewWidget::initMaps()
 {
     shared_ptr<FlameMaps> maps(new FlameMaps());
 
-    maps->maps.resize(3);
+    FlameMapping defaultMap;
+//    defaultMap.preMap.m = M22f(20);
+    defaultMap.postMap.m = M22f(0.5);
+    defaultMap.variation = 0;
+    maps->maps.resize(3, defaultMap);
+
+    maps->maps[0].preMap.m = M22f(1);
+    maps->maps[0].postMap.m = M22f(1);
     maps->maps[0].col = C3f(1,0,0);
     maps->maps[0].variation = 0;
 
-    maps->maps[1].col = C3f(0,1,0);
-    maps->maps[1].variation = 0;
+//    for(int i = 1; i < (int)maps->maps.size(); ++i)
+//        maps->maps[i].col = C3f(float(rand())/RAND_MAX, float(rand())/RAND_MAX,
+//                                float(rand())/RAND_MAX);
 
-    maps->maps[2].preMap.m = M22f(0.5);
-    maps->maps[2].col = C3f(1);
-    maps->maps[2].variation = 0;
+//    maps->maps[1].col = C3f(1,1,1);
+//    maps->maps[1].variation = 18;
+
+//    maps->maps[2].preMap.m = M22f(0.5);
+//    maps->maps[2].col = C3f(1);
+//    maps->maps[2].variation = 4;
 
     return maps;
 }
@@ -91,24 +102,19 @@ FlameViewWidget::FlameViewWidget()
 
 void FlameViewWidget::initializeGL()
 {
-    initCuda();
     m_hdriProgram.reset(new QGLShaderProgram);
-
     if(!m_hdriProgram->addShaderFromSourceFile(QGLShader::Fragment, "../hdri.glsl"))
         std::cout << "Shader compilation failed:\n"
                   << m_hdriProgram->log().toStdString() << "\n";
-
     if(!m_hdriProgram->link())
         std::cout << "Shader linking failed:\n"
                   << m_hdriProgram->log().toStdString() << "\n";
 
     m_pointRenderProgram.reset(new QGLShaderProgram);
-
     if(!m_pointRenderProgram->addShaderFromSourceFile(QGLShader::Fragment,
                                                      "../point_accum.glsl"))
         std::cout << "Shader compilation failed:\n"
                   << m_pointRenderProgram->log().toStdString() << "\n";
-
     if(!m_pointRenderProgram->link())
         std::cout << "Shader linking failed:\n"
                   << m_pointRenderProgram->log().toStdString() << "\n";
@@ -116,7 +122,12 @@ void FlameViewWidget::initializeGL()
     m_pointAccumFBO.reset(new QGLFramebufferObject(size(), QGLFramebufferObject::NoAttachment,
                                                    GL_TEXTURE_2D, GL_RGBA32F));
 
-    m_ifsPoints.reset(new PointVBO(100000));
+    initCuda();
+    m_flameEngine.reset(new GPUFlameEngine());
+//    m_flameEngine.reset(new CPUFlameEngine());
+
+    const int batchSize = 2000000;
+    m_ifsPoints.reset(new PointVBO(batchSize));
 }
 
 
@@ -137,7 +148,7 @@ void FlameViewWidget::resizeGL(int w, int h)
 
 void FlameViewWidget::paintGL()
 {
-    computeFractalFlameGPU(m_ifsPoints.get(), *m_flameMaps);
+    m_flameEngine->generate(m_ifsPoints.get(), *m_flameMaps);
     ++m_nPasses;
 
     glClearColor(0,0,0,0);
@@ -241,7 +252,7 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
     else if(event->key() == Qt::Key_P)
     {
         // get file name
-        QString nameTemplate = QString("output%1.png");
+        QString nameTemplate = QString("../output/output%1.png");
         int idx = 0;
         QString fName;
         while(true)

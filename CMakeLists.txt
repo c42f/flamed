@@ -27,7 +27,8 @@ include_directories(${QT_INCLUDES} ${GLEW_INCLUDES} ${CUDA_INCLUDE_DIRS})
 qt4_wrap_cpp(moc_srcs
     flames.h
 )
-cuda_compile(cuda_srcs compute_flames.cu)
+cuda_compile(cuda_srcs compute_flames.cu
+    OPTIONS -arch=sm_13 -use_fast_math)
 set(srcs
     ${moc_srcs}
     ${cuda_srcs}
