@@ -55,8 +55,8 @@ shared_ptr<FlameMaps> FlameViewWidget::initMaps()
 
     maps->maps[0].preMap.m = M22f(1);
     maps->maps[0].postMap.m = M22f(1);
-    maps->maps[0].col = C3f(1,0,0);
-    maps->maps[0].variation = 7;
+    maps->maps[0].col = C3f(0,0,1);
+    maps->maps[0].variation = 42;
 
 //    for(int i = 1; i < (int)maps->maps.size(); ++i)
 //        maps->maps[i].col = C3f(float(rand())/RAND_MAX, float(rand())/RAND_MAX,
@@ -330,24 +330,23 @@ void FlameViewWidget::mousePressEvent(QMouseEvent* event)
             }
         }
     }
-    else
+    // Map a grid from screen coordinates back into screen coordinates &
+    // choose the closest resulting point to the mouse position.
+    float closestDist = FLT_MAX;
+    int N = 100;
+    FlameMapping& map = m_flameMaps->maps[m_mapToEdit];
+    float scale = 1;
+    aspect = 1;
+    for(int j = 0; j <= N; ++j)
+    for(int i = 0; i <= N; ++i)
     {
-        // Map a grid from screen coordinates back into screen coordinates &
-        // choose the closest resulting point to the mouse position.
-        float closestDist = FLT_MAX;
-        int N = 100;
-        FlameMapping& map = m_flameMaps->maps[m_mapToEdit];
-        for(int j = 0; j <= N; ++j)
-        for(int i = 0; i <= N; ++i)
+        V2f p = scale*V2f(aspect*(2.0*i/N - 1), 2.0*j/N - 1);
+        V2f pMap = map.map(p);
+        float d2 = (pMap - mousePos).length2();
+        if(d2 < closestDist)
         {
-            V2f p = 2*V2f(aspect*(2.0*i/N - 1), 2.0*j/N - 1);
-            V2f pMap = map.map(p);
-            float d2 = (pMap - mousePos).length2();
-            if(d2 < closestDist)
-            {
-                closestDist = d2;
-                m_invPick = p;
-            }
+            closestDist = d2;
+            m_invPick = p;
         }
     }
     updateGL();

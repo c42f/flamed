@@ -125,6 +125,7 @@ struct M22f
         : a(a), b(b), c(c), d(d) {}
     GPU_HOSTDEV M22f inv() const;
     GPU_HOSTDEV M22f& operator*=(const M22f m);
+    GPU_HOSTDEV M22f& operator*=(float s);
 };
 GPU_HOSTDEV inline M22f operator*(float s, const M22f& m)
 {
@@ -146,6 +147,11 @@ GPU_HOSTDEV inline M22f M22f::inv() const
 GPU_HOSTDEV inline M22f& M22f::operator*=(const M22f m)
 {
     *this = (*this)*m;
+    return *this;
+}
+GPU_HOSTDEV inline M22f& M22f::operator*=(float s)
+{
+    *this = s * (*this);
     return *this;
 }
 

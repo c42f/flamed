@@ -33,15 +33,14 @@ void FlameMapping::scale(V2f p, V2f df, bool editPreTrans)
     aff.m.a *= (1+delta);
     aff.m.c *= (1+delta);
     V2f r1 = tmpMap.map(p);
-    aff.m.a /= (1+delta);
-    aff.m.c /= (1+delta);
+    tmpMap = *this;
     aff.m.b *= (1+delta);
     aff.m.d *= (1+delta);
     V2f r2 = tmpMap.map(p);
     V2f drdx = (r1 - r0)/delta;
     V2f drdy = (r2 - r0)/delta;
     M22f dfdad(drdx.x, drdy.x,
-                drdx.y, drdy.y);
+               drdx.y, drdy.y);
     V2f d_ad = dfdad.inv()*df;
     AffineMap& thisAff = editPreTrans ? preMap : postMap;
     thisAff.m.a *= (1+d_ad.x);
@@ -60,10 +59,20 @@ void FlameMapping::rotate(V2f p, V2f df, bool editPreTrans)
             -sin(delta), cos(delta)) * aff.m;
     V2f r1 = tmpMap.map(p);
     V2f dfdtheta = (r1 - r0)/delta;
-    float dtheta = dot(df, dfdtheta) / dot(dfdtheta, dfdtheta);
+    tmpMap = *this;
+    aff.m *= (1 + delta);
+    V2f r2 = tmpMap.map(p);
+    V2f dfdscale = (r2 - r0)/delta;
+    M22f dfdts(dfdtheta.x, dfdscale.x,
+               dfdtheta.y, dfdscale.y);
+    V2f dts = dfdts.inv()*df;
+    float dtheta = dts.x;
+    float dscale = dts.y;
+    // Least squares for single parameter
+    //float dtheta = dot(df, dfdtheta) / dot(dfdtheta, dfdtheta);
     AffineMap& thisAff = editPreTrans ? preMap : postMap;
-    thisAff.m = M22f( cos(dtheta), sin(dtheta),
-                        -sin(dtheta), cos(dtheta)) * thisAff.m;
+    thisAff.m = (1 + dscale) * M22f( cos(dtheta), sin(dtheta),
+                                    -sin(dtheta), cos(dtheta)) * thisAff.m;
 }
 
 
