@@ -112,6 +112,7 @@ struct FlameMapping
     {
         float x = p.x;
         float y = p.y;
+        // Uses variation numbers from Draves2003 (flam3 et al)
         switch(variation)
         {
             case 0:
@@ -147,6 +148,12 @@ struct FlameMapping
                 float theta = atan2f(x,y);
                 float r = sqrtf(x*x + y*y);
                 return r*V2f(sinf(theta*r), -cosf(theta*r));
+            }
+            case 13: { // Julia
+                float omega = 0;
+                float theta = atan2f(x,y);
+                float r_2 = powf(x*x + y*y, 0.25);
+                return r_2*V2f(sinf(theta + omega), -cosf(theta + omega));
             }
             case 18: { // Exponential
                 return expf(x - 1) * V2f(cosf(M_PI*y), sinf(M_PI*y));

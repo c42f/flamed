@@ -49,12 +49,12 @@ class FlameViewWidget : public QGLWidget
         shared_ptr<QGLShaderProgram> m_pointRenderProgram;
         shared_ptr<QGLShaderProgram> m_hdriProgram;
         shared_ptr<QGLFramebufferObject> m_pointAccumFBO;
-        shared_ptr<QGLFramebufferObject> m_pickerFBO;
         shared_ptr<PointVBO> m_ifsPoints;
         shared_ptr<FlameMaps> m_flameMaps;
         shared_ptr<FlameEngine> m_flameEngine;
         std::vector<shared_ptr<FlameMaps> > m_undoList;
         std::vector<shared_ptr<FlameMaps> > m_redoList;
+        bool m_useGpu;
 
         bool m_editMaps;
         EditMode m_editMode;

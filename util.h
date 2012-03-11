@@ -74,6 +74,7 @@ struct V2f
     GPU_HOSTDEV V2f(float x, float y) : x(x), y(y) {}
 
     GPU_HOSTDEV float length() const { return sqrt(x*x + y*y); }
+    GPU_HOSTDEV float length2() const { return x*x + y*y; }
 
     GPU_HOSTDEV V2f& operator+=(const V2f& rhs) { x += rhs.x; y += rhs.y; return *this; }
     GPU_HOSTDEV V2f& operator*=(float a) { x *= a; y *= a; return *this; }
