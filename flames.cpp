@@ -56,7 +56,7 @@ shared_ptr<FlameMaps> FlameViewWidget::initMaps()
     maps->maps[0].preMap.m = M22f(1);
     maps->maps[0].postMap.m = M22f(1);
     maps->maps[0].col = C3f(0,0,1);
-    maps->maps[0].variation = 42;
+    maps->maps[0].variation = 3;
 
 //    for(int i = 1; i < (int)maps->maps.size(); ++i)
 //        maps->maps[i].col = C3f(float(rand())/RAND_MAX, float(rand())/RAND_MAX,
@@ -333,14 +333,26 @@ void FlameViewWidget::mousePressEvent(QMouseEvent* event)
     // Map a grid from screen coordinates back into screen coordinates &
     // choose the closest resulting point to the mouse position.
     float closestDist = FLT_MAX;
-    int N = 100;
+    const int N = 100;
     FlameMapping& map = m_flameMaps->maps[m_mapToEdit];
     float scale = 1;
-    aspect = 1;
-    for(int j = 0; j <= N; ++j)
-    for(int i = 0; i <= N; ++i)
+//    aspect = 1;
+//    for(int j = 0; j <= N; ++j)
+//    for(int i = 0; i <= N; ++i)
+//    {
+//        V2f p = scale*V2f(aspect*(2.0*i/N - 1), 2.0*j/N - 1);
+//        V2f pMap = map.map(p);
+//        float d2 = (pMap - mousePos).length2();
+//        if(d2 < closestDist)
+//        {
+//            closestDist = d2;
+//            m_invPick = p;
+//        }
+//    }
+    for(int i = 0; i < N; ++i)
     {
-        V2f p = scale*V2f(aspect*(2.0*i/N - 1), 2.0*j/N - 1);
+        float theta = 2*M_PI*i/N;
+        V2f p = scale*V2f(cos(theta),  sin(theta));
         V2f pMap = map.map(p);
         float d2 = (pMap - mousePos).length2();
         if(d2 < closestDist)
@@ -405,8 +417,6 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    //float aspect = float(width())/height();
-    float aspect = 1;
     float scale = 1;
     for(int k = 0; k < (int)maps.size(); ++k)
     {
@@ -416,26 +426,20 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
             c = 0.5*c;
         glColor(c);
         glBegin(GL_LINES);
-        const int N = 30;
-        for(int j = 0; j <= N; j+=N)
-        for(int i = 1; i <= N; ++i)
+        const int N = 100;
+        for(int i = 0; i < N; ++i)
         {
-            V2f p0 = scale*V2f(aspect*(2.0*(i-1)/N - 1), 2.0*j/N - 1);
-            V2f p1 = scale*V2f(aspect*(2.0*i    /N - 1), 2.0*j/N - 1);
-            p0 = m.map(p0);
-            p1 = m.map(p1);
-            glVertex2f(p0.x, p0.y);
-            glVertex2f(p1.x, p1.y);
+            float theta = 2*M_PI*i/N;
+            float theta1 = 2*M_PI*(i+1)/N;
+            glVertex(m.map(scale*V2f(cos(theta),  sin(theta))));
+            glVertex(m.map(scale*V2f(cos(theta1), sin(theta1))));
         }
-        for(int j = 1; j <= N; ++j)
-        for(int i = 0; i <= N; i+=N)
+        for(int i = 0; i < N; ++i)
         {
-            V2f p0 = scale*V2f(aspect*(2.0*i/N - 1), 2.0*(j-1)/N - 1);
-            V2f p1 = scale*V2f(aspect*(2.0*i/N - 1), 2.0*j    /N - 1);
-            p0 = m.map(p0);
-            p1 = m.map(p1);
-            glVertex2f(p0.x, p0.y);
-            glVertex2f(p1.x, p1.y);
+            glVertex(m.map(scale*V2f(2.0*i/N - 1,     0)));
+            glVertex(m.map(scale*V2f(2.0*(i+1)/N - 1, 0)));
+            glVertex(m.map(scale*V2f(0, 2.0*i/N - 1    )));
+            glVertex(m.map(scale*V2f(0, 2.0*(i+1)/N - 1)));
         }
         glEnd();
     }
