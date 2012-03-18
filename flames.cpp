@@ -310,8 +310,8 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
         // toggle fullscreen
         setWindowState(windowState() ^ Qt::WindowFullScreen);
     }
-    event->ignore();
-//    std::cout << m_hdriExposure << "  " << m_hdriPow << "\n";
+    else
+        event->ignore();
 }
 
 
