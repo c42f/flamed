@@ -290,6 +290,7 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
     else if(event->key() == Qt::Key_G &&
             event->modifiers() == Qt::ControlModifier)
     {
+        // Switch between GPU & CPU renderers
         if(!m_useGpu)
         {
             std::cout << "Using GPU\n";
@@ -303,6 +304,11 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
             m_flameEngine.reset(new CPUFlameEngine());
             m_useGpu = false;
         }
+    }
+    else if(event->key() == Qt::Key_F11)
+    {
+        // toggle fullscreen
+        setWindowState(windowState() ^ Qt::WindowFullScreen);
     }
     event->ignore();
 //    std::cout << m_hdriExposure << "  " << m_hdriPow << "\n";
