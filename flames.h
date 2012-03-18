@@ -5,10 +5,12 @@
 class QGLShaderProgram;
 class QGLFramebufferObject;
 class QTimer;
+class QImage;
 class FlameEngine;
 template<typename> class VertexBufferObject;
 struct IFSPoint;
 typedef VertexBufferObject<IFSPoint> PointVBO;
+namespace Poppler { class Document; }
 
 struct FlameMaps;
 
@@ -45,6 +47,7 @@ class FlameViewWidget : public QGLWidget
         void loadScreenCoords() const;
         void drawMaps(const FlameMaps* flameMaps);
         void clearAccumulator();
+        void bindBackgroundTexture(GLuint& texId, int pageNum);
 
         shared_ptr<QGLShaderProgram> m_pointRenderProgram;
         shared_ptr<QGLShaderProgram> m_hdriProgram;
@@ -68,5 +71,10 @@ class FlameViewWidget : public QGLWidget
         float m_hdriExposure;
         float m_hdriPow;
         int m_nPasses;
+
+        /// Handling of background PDF pages for presentation.
+        shared_ptr<Poppler::Document> m_background;
+        int m_backgroundPageNum;
+        GLuint m_backgroundTexture;
 };
 

@@ -41,7 +41,7 @@ set(CMAKE_CXX_FLAGS "-Wall")
 
 add_executable(flames ${srcs})
 target_link_libraries(flames ${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY} ${QT_QTOPENGL_LIBRARY}
-                      ${CUDA_LIBRARIES})
+                      ${CUDA_LIBRARIES} poppler-qt4)
 	#${GLEW_LIBRARIES})
 
 

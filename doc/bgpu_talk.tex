@@ -1,0 +1,235 @@
+\documentclass{beamer}
+
+%\usetheme{Boadilla}
+
+\usepackage{graphics}
+\usepackage{amsmath}
+
+\usefonttheme{structurebold}
+\useinnertheme{default}
+\useoutertheme{smoothbars}
+
+%--------------------------------------------------
+% hacked albatross color theme
+\setbeamercolor*{normal text}{fg=yellow!20!white,bg=blue!0!black}
+
+\setbeamercolor*{example text}{fg=green!65!black}
+
+\setbeamercolor*{structure}{fg=blue!25!white}
+
+\setbeamercolor{palette primary}{use={structure,normal text},fg=structure.fg,bg=normal text.bg!75!black}
+\setbeamercolor{palette secondary}{use={structure,normal text},fg=structure.fg,bg=normal text.bg!60!black}
+\setbeamercolor{palette tertiary}{use={structure,normal text},fg=structure.fg,bg=normal text.bg!45!black}
+\setbeamercolor{palette quaternary}{use={structure,normal text},fg=structure.fg,bg=normal text.bg!30!black}
+
+\setbeamercolor*{block body}{bg=normal text.bg!90!black}
+\setbeamercolor*{block body alerted}{bg=normal text.bg!90!black}
+\setbeamercolor*{block body example}{bg=normal text.bg!90!black}
+\setbeamercolor*{block title}{parent=structure,bg=normal text.bg!75!black}
+\setbeamercolor*{block title alerted}{use={normal text,alerted text},fg=alerted text.fg!75!normal text.fg,bg=normal text.bg!75!black}
+\setbeamercolor*{block title example}{use={normal text,example text},fg=example text.fg!75!normal text.fg,bg=normal text.bg!75!black}
+
+\setbeamercolor{item projected}{fg=black}
+
+\setbeamercolor*{sidebar}{parent=palette primary}
+
+\setbeamercolor{palette sidebar primary}{use=normal text,fg=normal text.fg}
+\setbeamercolor{palette sidebar secondary}{use=structure,fg=structure.fg}
+\setbeamercolor{palette sidebar tertiary}{use=normal text,fg=normal text.fg}
+\setbeamercolor{palette sidebar quaternary}{use=structure,fg=structure.fg}
+
+\setbeamercolor*{separation line}{}
+\setbeamercolor*{fine separation line}{}
+
+
+
+%\usecolortheme{orchid} % inner color theme
+%\usecolortheme{seahorse} % outer color theme
+%\usecolortheme{albatross}
+%\usecolortheme[rgb={0.7,0.4,0.1}]{structure}
+%\usecolortheme[hsb={0.6,0.4,0.55}]{structure}
+%\usecolortheme[hsb={0.6,0.4,0.45}]{structure}
+%\setbeamercolor{background canvas}{bg=}
+
+\usefonttheme[onlymath]{serif}
+%\usefonttheme[stillsansseriftext,stillsansserifsmall]{serif}
+
+\setbeamercovered{transparent}
+
+\setbeamertemplate{navigation symbols}{}
+
+\title[Interactive fractal flames]{Interactive fractal flames with CUDA and OpenGL}
+%\titlegraphic{\includegraphics[viewport=8 653 558 831,width=6cm]{figures/logos.pdf}}
+%\subtitle{}
+
+
+\author{Chris Foster}
+\institute{ROAMES}
+\date{March 22, 2011}
+
+
+%===============================================================================
+%===============================================================================
+\begin{document}
+
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+%\begin{frame}
+%  \frametitle{Overview}
+%  \tableofcontents
+%\end{frame}
+
+
+%===============================================================================
+\section{Introduction}
+
+\begin{frame}
+  \frametitle{What is a fractal?}
+  \begin{itemize}
+    \item<1>
+      Fractional (Hausdorff) dimension $>$ topological dimension
+    \item<2>
+      Self similar
+    \item<3>
+      Power law scaling behaviour
+  \end{itemize}
+  \vspace{4cm}
+\end{frame}
+
+
+
+%===============================================================================
+\section{Mathematics}
+
+\begin{frame}
+  \frametitle{Iterated function systems}
+  \begin{itemize}
+    \item
+      Set of contractive functions $F_i \colon \mathbb{R}^2\to\mathbb{R}^2$
+    \item
+      Attractor obeys recursive set equation
+      \[
+      A = \bigcup_{i=1}^N F_i(A)
+      \]
+    \item
+      $F_i$ traditionally \emph{affine} (rotation/translation/scaling)
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Flame Fractals}
+  \begin{itemize}
+    \item
+      Non-affine $F_i$: more artistic flexibility
+      \[
+      F_i = P_i\bigg(\sum_m v_{im} V_m\big(Q_i(x,y)\big)\bigg)
+      \]
+    \item
+      Maps $P_i$ and $Q_i$ are affine, eg:
+      \[
+        Q_i(x,y) = \big(a_i x + b_i y + c_i,\; d_i x + e_i y + f_i \big)
+      \]
+    \item
+      $V_m$ are nonlinear ``variations''
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Algorithm}
+  \begin{itemize}
+    \item
+      Monte Carlo sampling
+    \item
+      Maps choosen at random
+    \item
+      Color mixed in
+  \end{itemize}
+\end{frame}
+
+
+%===============================================================================
+\section{Implementation}
+
+\begin{frame}
+  \frametitle{Implementation overview}
+  \begin{itemize}
+    \item
+      Generate point list using CUDA
+    \item
+      Render with additive OpenGL blending
+    \item
+      HDR tone map and gamma correction
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{CUDA}
+  \begin{itemize}
+    \item
+      Warp divergence
+    \item
+      curand
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{OpenGL HDRI}
+  \begin{itemize}
+    \item
+      Tone mapping
+    \item
+      $RGB_{lin}\to xyY \to xyY' \to RGB_{lin} \to RGB_{gam}$
+    \item
+      Gamma correction
+  \end{itemize}
+\end{frame}
+
+
+
+%===============================================================================
+\section*{End}
+
+\begin{frame}
+  \frametitle{Thanks (collage theorem)}
+\end{frame}
+
+\begin{frame}
+  \frametitle{References}
+  \begin{itemize}
+    \item
+      S. Draves and E. Reckase, \textit{The Fractal Flame Algorithm}, 2003.
+    \item
+      C. Schied \textit{et al.}, \textit{High-Performance Iterated Function 
+      Systems}, in GPU computing gems, Emerald Edition, 2011.
+    \item
+      K. J. Falconer, \textit{Fractal Geometry: Mathematical Foundations and 
+      Applications}, Wiley \& Sons, Chichester, 2003.
+%    \item
+%      Barnsley, \textit{Fractals Everywhere}
+  \end{itemize}
+%  \nocite{...}
+%  \bibliographystyle{unsrt}
+%  %\twocolumn
+%  \fontsize{5pt}{6pt}
+%  \bibliography{../bibfiles/general_cjf}
+%  \normalsize
+\end{frame}
+
+
+
+%===============================================================================
+%===============================================================================
+\part{Extras}
+
+\begin{frame}
+  \frametitle{Collage Theorem}
+\end{frame}
+
+
+\end{document}

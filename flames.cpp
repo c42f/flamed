@@ -18,6 +18,8 @@
 #include <QtCore/QTimer>
 #include <QtCore/QFileInfo>
 
+#include <poppler/qt4/poppler-qt4.h>
+
 
 #if 0
 // Deduced from matplotlib's gist_heat colormap
@@ -89,8 +91,17 @@ FlameViewWidget::FlameViewWidget()
     m_frameTimer(),
     m_hdriExposure(1),
     m_hdriPow(1),
-    m_nPasses(0)
+    m_nPasses(0),
+    m_background(),
+    m_backgroundPageNum(0),
+    m_backgroundTexture(0)
 {
+    // Load presentation
+    m_background.reset(Poppler::Document::load("../doc/bgpu_talk.pdf"));
+    m_background->setRenderHint(Poppler::Document::Antialiasing);
+    m_background->setRenderHint(Poppler::Document::TextAntialiasing);
+    m_background->setPaperColor(QColor(0,0,0,0));
+
     m_undoList.push_back(shared_ptr<FlameMaps>(new FlameMaps(*m_flameMaps)));
 
     // Install timer with zero timeout to continuously insert extra points into
@@ -99,6 +110,17 @@ FlameViewWidget::FlameViewWidget()
     m_frameTimer->setSingleShot(false);
     m_frameTimer->start(0);
     connect(m_frameTimer, SIGNAL(timeout()), this, SLOT(updateGL()));
+}
+
+
+void FlameViewWidget::bindBackgroundTexture(GLuint& texId, int pageNum)
+{
+    if(!m_background)
+        return;
+    shared_ptr<Poppler::Page> pdfPage(m_background->page(pageNum));
+    QSize s = pdfPage->pageSize();
+    int yres = height()*72/s.height();
+    texId = bindTexture(pdfPage->renderToImage(yres, yres));
 }
 
 
@@ -132,6 +154,8 @@ void FlameViewWidget::initializeGL()
 
     const int batchSize = 2000000;
     m_ifsPoints.reset(new PointVBO(batchSize));
+
+    bindBackgroundTexture(m_backgroundTexture, m_backgroundPageNum);
 }
 
 
@@ -143,6 +167,7 @@ void FlameViewWidget::resizeGL(int w, int h)
                                  GL_TEXTURE_2D, GL_RGBA32F)
     );
     clearAccumulator();
+    bindBackgroundTexture(m_backgroundTexture, m_backgroundPageNum);
 }
 
 
@@ -179,12 +204,32 @@ void FlameViewWidget::paintGL()
     m_pointRenderProgram->release();
     m_pointAccumFBO->release();
 
+    // Draw background
+    glColor3f(1,1,1);
+    glEnable(GL_TEXTURE_2D);
     glDisable(GL_BLEND);
     glClearColor(0,0,0,0);
     glClear(GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
+    glBindTexture(GL_TEXTURE_2D, m_backgroundTexture);
+    glBegin(GL_QUADS);
+        glTexCoord2f(0, 0);
+        glVertex2f(-1, -1);
+        glTexCoord2f(1, 0);
+        glVertex2f(1, -1);
+        glTexCoord2f(1, 1);
+        glVertex2f(1, 1);
+        glTexCoord2f(0, 1);
+        glVertex2f(-1, 1);
+    glEnd();
+    glDisable(GL_TEXTURE_2D);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+//    glClearColor(0,0,0,0);
+//    glClear(GL_COLOR_BUFFER_BIT);
+    glLoadIdentity();
     m_hdriProgram->bind();
-//    glEnable(GL_TEXTURE_2D);
     // Bind FBO to texture unit & set shader params.
     GLint texUnit = 0;
     glActiveTexture(GL_TEXTURE0 + texUnit);
@@ -205,7 +250,6 @@ void FlameViewWidget::paintGL()
         glTexCoord2f(0, 1);
         glVertex2f(-1, 1);
     glEnd();
-//    glDisable(GL_TEXTURE_2D);
     m_hdriProgram->release();
 
     if(m_editMaps)
@@ -310,6 +354,19 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
         // toggle fullscreen
         setWindowState(windowState() ^ Qt::WindowFullScreen);
     }
+    else if(event->key() == Qt::Key_PageUp && m_background)
+    {
+        m_backgroundPageNum = std::max(m_backgroundPageNum - 1, 0);
+        bindBackgroundTexture(m_backgroundTexture, m_backgroundPageNum);
+        updateGL();
+    }
+    else if(event->key() == Qt::Key_PageDown && m_background)
+    {
+        m_backgroundPageNum = std::min(m_backgroundPageNum + 1,
+                                       m_background->numPages() - 1);
+        bindBackgroundTexture(m_backgroundTexture, m_backgroundPageNum);
+        updateGL();
+    }
     else
         event->ignore();
 }
@@ -400,7 +457,7 @@ void FlameViewWidget::mouseReleaseEvent(QMouseEvent* event)
 
 QSize FlameViewWidget::sizeHint() const
 {
-    return QSize(640, 480);
+    return QSize(800, 600);
 }
 
 
