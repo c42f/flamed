@@ -2,7 +2,7 @@
 #include <GL/gl.h>
 #include <GL/glext.h>
 
-#include "flames.h"
+#include "flamed.h"
 #include "compute_flames.h"
 
 #include <algorithm>

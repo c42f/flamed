@@ -1,4 +1,4 @@
-project(flames)
+project(flamed)
 
 cmake_minimum_required(VERSION 2.8)
 
@@ -25,22 +25,22 @@ find_package(CUDA)
 include_directories(${QT_INCLUDES} ${GLEW_INCLUDES} ${CUDA_INCLUDE_DIRS})
 
 qt4_wrap_cpp(moc_srcs
-    flames.h
+    flamed.h
 )
 cuda_compile(cuda_srcs compute_flames.cu
     OPTIONS -arch=sm_13 -use_fast_math)
 set(srcs
     ${moc_srcs}
     ${cuda_srcs}
-    flames.cpp
+    flamed.cpp
     compute_flames.cpp
 )
 
 set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build" FORCE)
 set(CMAKE_CXX_FLAGS "-Wall")
 
-add_executable(flames ${srcs})
-target_link_libraries(flames ${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY} ${QT_QTOPENGL_LIBRARY}
+add_executable(flamed ${srcs})
+target_link_libraries(flamed ${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY} ${QT_QTOPENGL_LIBRARY}
                       ${CUDA_LIBRARIES} poppler-qt4)
 	#${GLEW_LIBRARIES})
 
