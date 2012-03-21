@@ -72,27 +72,10 @@ shared_ptr<FlameMaps> FlameViewWidget::initMaps()
     defaultMap.variation = 0;
     maps->maps.resize(2, defaultMap);
 
-    // Barnsley Fern
-//    maps->maps[0].postMap = AffineMap(M22f( 0.1,  0.00,  0.00, 0.16), V2f(0, 0));
-//    maps->maps[1].postMap = AffineMap(M22f( 0.85,  0.04, -0.04, 0.85), V2f(0.00, 1.60));
-//    maps->maps[2].postMap = AffineMap(M22f( 0.20, -0.26,  0.23, 0.22), V2f(0.00, 1.60));
-//    maps->maps[3].postMap = AffineMap(M22f(-0.15,  0.28,  0.26, 0.24), V2f(0.00, 0.44));
-
     maps->maps[0].preMap.m = M22f(1);
     maps->maps[0].postMap.m = M22f(1);
     maps->maps[0].col = C3f(0,0,1);
     maps->maps[0].variation = 0;
-
-//    for(int i = 1; i < (int)maps->maps.size(); ++i)
-//        maps->maps[i].col = C3f(float(rand())/RAND_MAX, float(rand())/RAND_MAX,
-//                                float(rand())/RAND_MAX);
-
-//    maps->maps[1].col = C3f(1,1,1);
-//    maps->maps[1].variation = 18;
-
-//    maps->maps[2].preMap.m = M22f(0.5);
-//    maps->maps[2].col = C3f(1);
-//    maps->maps[2].variation = 4;
 
     return maps;
 }
@@ -142,7 +125,7 @@ void FlameViewWidget::bindBackgroundTexture(GLuint& texId, int pageNum)
     int yres = height()*72/s.height();
     texId = bindTexture(pdfPage->renderToImage(yres, yres));
     // hack: also load in fractal coeffs for page
-    QString fName = QString("page%1.flamed").arg(pageNum);
+    QString fName = QString("../doc/page%1.flamed").arg(pageNum);
     std::ifstream inFile(fName.toStdString().c_str());
     if(inFile)
     {
@@ -348,6 +331,7 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
             if(!m_flameMaps->load(inFile))
                 std::cout << "failed to load test.flamed\n";
             clearAccumulator();
+            m_frameTimer->start(0);
         }
     }
     else if(event->key() == Qt::Key_Escape)
@@ -544,6 +528,14 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
             glVertex(flameMaps->fullMap(scale*V2f(2.0*(i+1)/N - 1, 0), k));
             glVertex(flameMaps->fullMap(scale*V2f(0, 2.0*i/N - 1    ), k));
             glVertex(flameMaps->fullMap(scale*V2f(0, 2.0*(i+1)/N - 1), k));
+//            glVertex(flameMaps->fullMap(scale*V2f(2*(2.0*i/N - 1),     -1), k));
+//            glVertex(flameMaps->fullMap(scale*V2f(2*(2.0*(i+1)/N - 1), -1), k));
+//            glVertex(flameMaps->fullMap(scale*V2f(2*(1), 2.0*i/N - 1    ), k));
+//            glVertex(flameMaps->fullMap(scale*V2f(2*(1), 2.0*(i+1)/N - 1), k));
+//            glVertex(flameMaps->fullMap(scale*V2f(2*(-1), 2.0*i/N - 1    ), k));
+//            glVertex(flameMaps->fullMap(scale*V2f(2*(-1), 2.0*(i+1)/N - 1), k));
+//            glVertex(flameMaps->fullMap(scale*V2f(2*(2.0*i/N - 1    ), 1), k));
+//            glVertex(flameMaps->fullMap(scale*V2f(2*(2.0*(i+1)/N - 1), 1), k));
         }
         glEnd();
     }
