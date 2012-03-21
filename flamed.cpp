@@ -141,6 +141,20 @@ void FlameViewWidget::bindBackgroundTexture(GLuint& texId, int pageNum)
     QSize s = pdfPage->pageSize();
     int yres = height()*72/s.height();
     texId = bindTexture(pdfPage->renderToImage(yres, yres));
+    // hack: also load in fractal coeffs for page
+    QString fName = QString("page%1.flamed").arg(pageNum);
+    std::ifstream inFile(fName.toStdString().c_str());
+    if(inFile)
+    {
+        m_flameMaps->load(inFile);
+        m_frameTimer->start(0);
+    }
+    else
+    {
+        m_flameMaps->maps.clear();
+        m_frameTimer->stop();
+    }
+    clearAccumulator();
 }
 
 
@@ -193,37 +207,6 @@ void FlameViewWidget::resizeGL(int w, int h)
 
 void FlameViewWidget::paintGL()
 {
-    m_flameEngine->generate(m_ifsPoints.get(), *m_flameMaps);
-    ++m_nPasses;
-
-    glClearColor(0,0,0,0);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    // Render all points into framebuffer object
-    m_pointAccumFBO->bind();
-
-    loadScreenCoords();
-
-    // Additive blending for points
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-//    glEnable(GL_POINT_SMOOTH);
-    glEnable(GL_POINT_SPRITE);
-    glColor3f(0.5,0.5,0.5);
-    glPointSize(1);
-    m_pointRenderProgram->bind();
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-    m_ifsPoints->bind();
-    glVertexPointer(2, GL_FLOAT, sizeof(IFSPoint), 0);
-    glColorPointer (3, GL_FLOAT, sizeof(IFSPoint), ((char*)0) + sizeof(V2f));
-    glDrawArrays(GL_POINTS, 0, m_ifsPoints->size());
-    m_ifsPoints->release();
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
-    m_pointRenderProgram->release();
-    m_pointAccumFBO->release();
-
     // Draw background
     glColor3f(1,1,1);
     glEnable(GL_TEXTURE_2D);
@@ -243,6 +226,36 @@ void FlameViewWidget::paintGL()
         glVertex2f(-1, 1);
     glEnd();
     glDisable(GL_TEXTURE_2D);
+
+    if(m_flameMaps->maps.empty())
+        return;
+
+    // Draw fractal
+    m_flameEngine->generate(m_ifsPoints.get(), *m_flameMaps);
+    ++m_nPasses;
+
+    // Render all points into framebuffer object
+    m_pointAccumFBO->bind();
+    loadScreenCoords();
+    // Additive blending for points
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+//    glEnable(GL_POINT_SMOOTH);
+    glEnable(GL_POINT_SPRITE);
+    glColor3f(0.5,0.5,0.5);
+    glPointSize(1);
+    m_pointRenderProgram->bind();
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    m_ifsPoints->bind();
+    glVertexPointer(2, GL_FLOAT, sizeof(IFSPoint), 0);
+    glColorPointer (3, GL_FLOAT, sizeof(IFSPoint), ((char*)0) + sizeof(V2f));
+    glDrawArrays(GL_POINTS, 0, m_ifsPoints->size());
+    m_ifsPoints->release();
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+    m_pointRenderProgram->release();
+    m_pointAccumFBO->release();
 
     glEnable(GL_BLEND);
     // Use of ONE_MINUS_DST_COLOR is a quick hack to get an approximate overlay
