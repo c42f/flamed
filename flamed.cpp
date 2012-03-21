@@ -111,8 +111,6 @@ FlameViewWidget::FlameViewWidget()
     m_lastPos(),
     m_invPick(1),
     m_frameTimer(),
-    m_hdriExposure(1),
-    m_hdriPow(1),
     m_nPasses(0),
     m_background(),
     m_backgroundPageNum(0),
@@ -260,8 +258,8 @@ void FlameViewWidget::paintGL()
     glActiveTexture(GL_TEXTURE0 + texUnit);
     m_hdriProgram->setUniformValue("tex", texUnit);
     float pointDens = float(width()*height()) / (m_nPasses*m_ifsPoints->size());
-    m_hdriProgram->setUniformValue("hdriExposure", m_hdriExposure*pointDens);
-    m_hdriProgram->setUniformValue("hdriPow", m_hdriPow);
+    m_hdriProgram->setUniformValue("hdriExposure", m_flameMaps->hdrExposure*pointDens);
+    m_hdriProgram->setUniformValue("hdriPow", m_flameMaps->hdrPow);
     glBindTexture(GL_TEXTURE_2D, m_pointAccumFBO->texture());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -288,13 +286,13 @@ void FlameViewWidget::paintGL()
 void FlameViewWidget::keyPressEvent(QKeyEvent* event)
 {
     if(event->key() == Qt::Key_Plus)
-        m_hdriExposure *= 1.5;
+        m_flameMaps->hdrExposure *= 1.5;
     else if(event->key() == Qt::Key_Minus)
-        m_hdriExposure /= 1.5;
+        m_flameMaps->hdrExposure /= 1.5;
     else if(event->key() == Qt::Key_BracketRight)
-        m_hdriPow *= 1.5;
+        m_flameMaps->hdrPow *= 1.5;
     else if(event->key() == Qt::Key_BracketLeft)
-        m_hdriPow /= 1.5;
+        m_flameMaps->hdrPow /= 1.5;
     else if(event->key() == Qt::Key_E)
         m_editMaps = !m_editMaps;
     else if(event->key() == Qt::Key_A)

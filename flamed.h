@@ -67,8 +67,6 @@ class FlameViewWidget : public QGLWidget
         V2f m_invPick;
 
         QTimer* m_frameTimer;
-        float m_hdriExposure;
-        float m_hdriPow;
         int m_nPasses;
 
         /// Handling of background PDF pages for presentation.

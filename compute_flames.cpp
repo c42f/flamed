@@ -92,6 +92,7 @@ void FlameMaps::save(std::ostream& out)
 {
     out << "FlamEd V1\n";
     out.precision(8);
+    out << hdrExposure << " " << hdrPow << "\n";
     out << finalMap << "\n";
     for(size_t i = 0; i < maps.size(); ++i)
         out << "--\n" << maps[i] << "\n";
@@ -119,6 +120,7 @@ bool FlameMaps::load(std::istream& in)
     in >> s;
     if(s != "V1")
         return false;
+    in >> tmpMaps.hdrExposure >> tmpMaps.hdrPow;
     loadMap(in, tmpMaps.finalMap);
     in >> s;
     while(s == "--")

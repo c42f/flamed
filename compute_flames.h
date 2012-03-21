@@ -190,8 +190,15 @@ std::ostream& operator<<(std::ostream& out, const FlameMapping& map);
 
 struct FlameMaps
 {
+    // IFS functions
     std::vector<FlameMapping> maps;
+    // Final "out of loop" transform
     FlameMapping finalMap;
+    // Tone mapping parameters for high dynamic range display
+    float hdrExposure;
+    float hdrPow;
+
+    FlameMaps() : hdrExposure(1), hdrPow(1) {}
 
     V2f fullMap(const V2f& p, int i) const
     {
