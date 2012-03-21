@@ -185,10 +185,16 @@ struct FlameMapping
 };
 
 
+std::ostream& operator<<(std::ostream& out, const FlameMapping& map);
+
+
 struct FlameMaps
 {
     std::vector<FlameMapping> maps;
-//    FlameMapping finalMap;
+    FlameMapping finalMap;
+
+    void save(std::ostream& out);
+    bool load(std::istream& in);
 };
 
 

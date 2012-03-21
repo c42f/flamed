@@ -10,6 +10,7 @@
 #endif
 
 #include <math.h>
+#include <iostream>
 
 #include <boost/shared_ptr.hpp>
 using boost::shared_ptr; // gcc's tr1::shared_ptr doesn't work with nvcc :(
@@ -165,6 +166,7 @@ struct AffineMap
 
     GPU_HOSTDEV AffineMap() {}
     GPU_HOSTDEV AffineMap(InitTag /*init*/) : m(1), c(0) {}
+    GPU_HOSTDEV AffineMap(M22f m, V2f c) : m(m), c(c) {}
 
     GPU_HOSTDEV V2f map(V2f p) const
     {
@@ -172,5 +174,32 @@ struct AffineMap
     }
 };
 
+
+inline std::ostream& operator<<(std::ostream& out, const AffineMap& map)
+{
+    out << map.m.a << " " << map.m.b << " "
+        << map.m.c << " " << map.m.d << "   "
+        << map.c.x << " " << map.c.y;
+    return out;
+}
+
+inline std::istream& operator>>(std::istream& in, AffineMap& map)
+{
+    in >> map.m.a >> map.m.b >> map.m.c >> map.m.d
+       >> map.c.x >> map.c.y;
+    return in;
+}
+
+inline std::ostream& operator<<(std::ostream& out, const C3f& col)
+{
+    out << col.x << " " << col.y << " " << col.z;
+    return out;
+}
+
+inline std::istream& operator>>(std::istream& in, C3f& col)
+{
+    in >> col.x >> col.y >> col.z;
+    return in;
+}
 
 #endif // UTIL_H_INCLUDED

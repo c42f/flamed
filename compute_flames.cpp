@@ -76,6 +76,61 @@ void FlameMapping::rotate(V2f p, V2f df, bool editPreTrans)
 }
 
 
+std::ostream& operator<<(std::ostream& out, const FlameMapping& map)
+{
+    out << map.preMap << "\n"
+        << map.variation << "\n"
+        << map.postMap << "\n"
+        << map.colorSpeed << " " << map.col;
+    return out;
+}
+
+
+void FlameMaps::save(std::ostream& out)
+{
+    out << "FlamEd V1\n";
+    out.precision(8);
+    out << finalMap << "\n";
+    for(size_t i = 0; i < maps.size(); ++i)
+        out << "--\n" << maps[i] << "\n";
+    out << "----\n";
+}
+
+
+static bool loadMap(std::istream& in, FlameMapping& map)
+{
+    in >> map.preMap
+       >> map.variation
+       >> map.postMap
+       >> map.colorSpeed >> map.col;
+    return true; // TODO: error checking.
+}
+
+
+bool FlameMaps::load(std::istream& in)
+{
+    FlameMaps tmpMaps;
+    std::string s;
+    in >> s;
+    if(s != "FlamEd")
+        return false;
+    in >> s;
+    if(s != "V1")
+        return false;
+    loadMap(in, tmpMaps.finalMap);
+    in >> s;
+    while(s == "--")
+    {
+        tmpMaps.maps.push_back(FlameMapping());
+        loadMap(in, tmpMaps.maps.back());
+        in >> s;
+    }
+    if(s != "----")
+        return false;
+    *this = tmpMaps;
+    return true;
+}
+
 
 //------------------------------------------------------------------------------
 void CPUFlameEngine::generate(PointVBO* points, const FlameMaps& flameMaps)

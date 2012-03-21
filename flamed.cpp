@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <fstream>
 #include <math.h>
 #include <float.h>
 
@@ -45,6 +46,20 @@ static void printGlError(const char* tag)
 #endif
 
 
+QString uniqueIndexedFileName(const QString& nameTemplate)
+{
+    int idx = 0;
+    QString fName;
+    while(true)
+    {
+        fName = nameTemplate.arg(idx, 3, 10, QChar('0'));
+        if(!QFileInfo(fName).exists())
+            return fName;
+        ++idx;
+    }
+}
+
+
 shared_ptr<FlameMaps> FlameViewWidget::initMaps()
 {
     shared_ptr<FlameMaps> maps(new FlameMaps());
@@ -53,12 +68,18 @@ shared_ptr<FlameMaps> FlameViewWidget::initMaps()
     defaultMap.preMap.m = M22f(1);
     defaultMap.postMap.m = M22f(1);
     defaultMap.variation = 0;
-    maps->maps.resize(3, defaultMap);
+    maps->maps.resize(2, defaultMap);
+
+    // Barnsley Fern
+//    maps->maps[0].postMap = AffineMap(M22f( 0.1,  0.00,  0.00, 0.16), V2f(0, 0));
+//    maps->maps[1].postMap = AffineMap(M22f( 0.85,  0.04, -0.04, 0.85), V2f(0.00, 1.60));
+//    maps->maps[2].postMap = AffineMap(M22f( 0.20, -0.26,  0.23, 0.22), V2f(0.00, 1.60));
+//    maps->maps[3].postMap = AffineMap(M22f(-0.15,  0.28,  0.26, 0.24), V2f(0.00, 0.44));
 
     maps->maps[0].preMap.m = M22f(1);
     maps->maps[0].postMap.m = M22f(1);
     maps->maps[0].col = C3f(0,0,1);
-    maps->maps[0].variation = 3;
+    maps->maps[0].variation = 0;
 
 //    for(int i = 1; i < (int)maps->maps.size(); ++i)
 //        maps->maps[i].col = C3f(float(rand())/RAND_MAX, float(rand())/RAND_MAX,
@@ -295,17 +316,24 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
     else if(event->key() == Qt::Key_P)
     {
         // get file name
-        QString nameTemplate = QString("../output/output%1.png");
-        int idx = 0;
-        QString fName;
-        while(true)
-        {
-            fName = nameTemplate.arg(idx, 3, 10, QChar('0'));
-            if(!QFileInfo(fName).exists())
-                break;
-            ++idx;
-        }
+        QString fName = uniqueIndexedFileName("../output/output%1.png");
         grabFrameBuffer().save(fName);
+    }
+    else if(event->key() == Qt::Key_L)
+    {
+        // Test - save or load fractal flame
+        if(event->modifiers() == Qt::ControlModifier)
+        {
+            std::ofstream outFile("test.flamed");
+            m_flameMaps->save(outFile);
+        }
+        else
+        {
+            std::ifstream inFile("test.flamed");
+            if(!m_flameMaps->load(inFile))
+                std::cout << "failed to load test.flamed\n";
+            clearAccumulator();
+        }
     }
     else if(event->key() == Qt::Key_Escape)
         close();
