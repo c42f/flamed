@@ -4,12 +4,19 @@
 
 \usepackage{graphics}
 \usepackage{amsmath}
+\usepackage{listings}
 
+%--------------------------------------------------
+% Macros
+
+\newcommand{\vf}[1]{\vskip0pt plus #1}
+
+%--------------------------------------------------
+% Beamer stuff
 \usefonttheme{structurebold}
 \useinnertheme{default}
 \useoutertheme{smoothbars}
 
-%--------------------------------------------------
 % hacked albatross color theme
 \setbeamercolor*{normal text}{fg=yellow!20!white,bg=blue!0!black}
 
@@ -91,11 +98,11 @@
     \item<1>
       Fractional (Hausdorff) dimension $>$ topological dimension
     \item<2>
-      Self similar
+      Self-similar at varying scales
     \item<3>
       Power law scaling behaviour
   \end{itemize}
-  \vspace{4cm}
+  \vf{10fill}
 \end{frame}
 
 
@@ -104,55 +111,72 @@
 \section{Mathematics}
 
 \begin{frame}
-  \frametitle{Iterated function systems}
+  \frametitle{Iterated function systems (IFS)}
+  \onslide<1>
   \begin{itemize}
     \item
-      Set of contractive functions $F_i \colon \mathbb{R}^2\to\mathbb{R}^2$
+      Hutchinson 1981 \cite{Hutchinson1981}: general set of strictly 
+      self-similar fractals
     \item
-      Attractor obeys recursive set equation
+      Popularised by Barnsley \cite{Barnsley1988} in \emph{Fractals Everywhere}, 1988
+    \item
+      Set of $N$ contractive functions $F_i \colon \mathbb{R}^2\to\mathbb{R}^2$
+    \item
+      ``Attractor'' obeys recursive set equation
       \[
-      A = \bigcup_{i=1}^N F_i(A)
+      A_{k+1} = \bigcup_{i=1}^N F_i(A_k) \qquad
+      A_k \to A \;\;\text{as}\;\; k \to \infty
       \]
     \item
       $F_i$ traditionally \emph{affine} (rotation/translation/scaling)
   \end{itemize}
+  \vf{1filll}
+  \onslide<2>
 \end{frame}
 
 
 \begin{frame}
   \frametitle{Flame Fractals}
+  \onslide<1>
   \begin{itemize}
+    \item
+      Invented by Draves \& Reckase 2003 \cite{Draves2003} (flam3/electric sheep)
     \item
       Non-affine $F_i$: more artistic flexibility
       \[
       F_i = P_i\bigg(\sum_m v_{im} V_m\big(Q_i(x,y)\big)\bigg)
       \]
     \item
-      Maps $P_i$ and $Q_i$ are affine, eg:
+      $V_m$ are nonlinear ``variations''; maps $P_i$ and $Q_i$ are affine:
       \[
         Q_i(x,y) = \big(a_i x + b_i y + c_i,\; d_i x + e_i y + f_i \big)
       \]
-    \item
-      $V_m$ are nonlinear ``variations''
   \end{itemize}
-\end{frame}
-
-
-\begin{frame}
-  \frametitle{Algorithm}
-  \begin{itemize}
-    \item
-      Monte Carlo sampling
-    \item
-      Maps choosen at random
-    \item
-      Color mixed in
-  \end{itemize}
+  \vf{10fill}
+  \onslide<2>
 \end{frame}
 
 
 %===============================================================================
 \section{Implementation}
+
+\begin{frame}[fragile]
+  \frametitle{Monte Carlo sampling}
+  \lstset{language=python,basicstyle=\scriptsize}
+\begin{lstlisting}
+P = (0,0,0)    # Arbitrary position
+C = (0,0,0)    # Arbitrary colour
+
+for i in range(0,maxIter):
+    func = choose_function_at_random(funcs)
+    P = func(P)
+    C = 0.5*(func.C + C)
+    if i > discardCutoff:
+        plot_point(P, C)
+\end{lstlisting}
+  \vf{5filll}
+\end{frame}
+
 
 \begin{frame}
   \frametitle{Implementation overview}
@@ -160,34 +184,58 @@
     \item
       Generate point list using CUDA
     \item
-      Render with additive OpenGL blending
+      Render points with additive OpenGL blending
     \item
-      HDR tone map and gamma correction
+      HDR tone mapping and gamma correction
   \end{itemize}
+  \vf{5filll}
 \end{frame}
 
 
 \begin{frame}
-  \frametitle{CUDA}
+  \frametitle{GPU flames}
   \begin{itemize}
     \item
-      Warp divergence
+      History: S. Green \cite{Green2005}, flam4 (keldor314), GPU gems \cite{Schied2011}
     \item
-      curand
+      My implementation in CUDA is pretty naive:
+    \item
+      50 points from each of 40,000 threads (total 2,000,000) generated into 
+      vertex buffer object
+    \item
+      curand for random numbers
   \end{itemize}
+  \vf{1filll}
 \end{frame}
 
 
 \begin{frame}
-  \frametitle{OpenGL HDRI}
+  \frametitle{OpenGL High Dynamic Range Pipeline}
   \begin{itemize}
     \item
-      Tone mapping
+      Accumulate into offscreen float-precision FBO
     \item
-      $RGB_{lin}\to xyY \to xyY' \to RGB_{lin} \to RGB_{gam}$
-    \item
-      Gamma correction
+      Tone mapping \& gamma correction with GLSL:
+      \[
+      \text{RGB}_{\text{linear}}\to \text{xyY} \to \text{xyY}' \to
+      \text{RGB}'_{\text{linear}} \to \text{RGB}'_{\text{gamma}}
+      \]
   \end{itemize}
+  \onslide+<1>
+  \includegraphics[width=10cm]{tone_map.pdf}
+  \onslide<2>
+\end{frame}
+
+
+\begin{frame}[fragile]
+  \frametitle{Future Performance Tuning}
+  \begin{itemize}
+    \item
+      Warp divergence with many variations and many functions
+    \item
+      GPU gems algorithm \cite{Schied2011}
+  \end{itemize}
+  \vf{5filll}
 \end{frame}
 
 
@@ -195,41 +243,40 @@
 %===============================================================================
 \section*{End}
 
-\begin{frame}
-  \frametitle{Thanks (collage theorem)}
+\begin{frame}[fragile]
+  Thanks (collage)
+
+  \vf{1filll}
+  \verb|www.github.com/c42f/flamed|
+  \vskip1em
 \end{frame}
+
 
 \begin{frame}
   \frametitle{References}
-  \begin{itemize}
-    \item
-      S. Draves and E. Reckase, \textit{The Fractal Flame Algorithm}, 2003.
-    \item
-      C. Schied \textit{et al.}, \textit{High-Performance Iterated Function 
-      Systems}, in GPU computing gems, Emerald Edition, 2011.
-    \item
-      K. J. Falconer, \textit{Fractal Geometry: Mathematical Foundations and 
-      Applications}, Wiley \& Sons, Chichester, 2003.
-%    \item
-%      Barnsley, \textit{Fractals Everywhere}
-  \end{itemize}
-%  \nocite{...}
-%  \bibliographystyle{unsrt}
-%  %\twocolumn
-%  \fontsize{5pt}{6pt}
-%  \bibliography{../bibfiles/general_cjf}
-%  \normalsize
+  \nocite{*}
+  \bibliographystyle{unsrt}
+  \fontsize{7pt}{7pt}
+  \bibliography{bibliography}
+  \normalsize
 \end{frame}
 
 
 
 %===============================================================================
 %===============================================================================
-\part{Extras}
+%\part{Extras}
+%
+%\begin{frame}
+%  \frametitle{GLSL HDRI}
+%  \lstset{language=C,basicstyle=\tiny}
+%  \lstinputlisting[linerange=2-16]{../hdri.glsl}
+%\end{frame}
 
-\begin{frame}
-  \frametitle{Collage Theorem}
-\end{frame}
+
+%\begin{frame}
+%  \frametitle{Collage Theorem}
+%\end{frame}
 
 
 \end{document}
