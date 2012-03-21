@@ -13,3 +13,26 @@ editing.
 
 The control scheme is evolving and is therefore a bit of a mess; see
 FlameViewWidget::keyPressEvent() in flamed.cpp for details.
+
+
+Building and running
+--------------------
+
+First you need the boost, CUDA and Qt libraries, as well as the OpenGL headers
+for your system.  (It would be best to remove boost as a dependency, but it's
+filling a stopgap role for now.)  You also need cmake which is used to manage
+the build system.
+
+To build on linux::
+
+  cd $FLAMED_SOURCE
+  mkdir build
+  cd build
+  cmake ../
+  make
+
+Currently you must run from the build directory::
+
+  cd $FLAMED_SOURCE/build
+  ./flamed
+
