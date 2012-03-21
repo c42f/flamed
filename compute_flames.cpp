@@ -1,6 +1,8 @@
 #include "compute_flames.h"
 
 
+// TODO: Fix these to deal properly with the finalMap and factor common code
+
 void FlameMapping::translate(V2f p, V2f df, bool editPreTrans)
 {
     FlameMapping tmpMap = *this;
@@ -81,7 +83,7 @@ std::ostream& operator<<(std::ostream& out, const FlameMapping& map)
     out << map.preMap << "\n"
         << map.variation << "\n"
         << map.postMap << "\n"
-        << map.colorSpeed << " " << map.col;
+        << map.col << "   " << map.colorSpeed;
     return out;
 }
 
@@ -102,7 +104,7 @@ static bool loadMap(std::istream& in, FlameMapping& map)
     in >> map.preMap
        >> map.variation
        >> map.postMap
-       >> map.colorSpeed >> map.col;
+       >> map.col >> map.colorSpeed;
     return true; // TODO: error checking.
 }
 
@@ -151,7 +153,7 @@ void CPUFlameEngine::generate(PointVBO* points, const FlameMaps& flameMaps)
         col = m.colorSpeed*m.col + (1-m.colorSpeed)*col;
         if(i >= 0)
         {
-            ptData->pos = p;
+            ptData->pos = flameMaps.finalMap.map(p);
             ptData->col = col;
             ++ptData;
         }

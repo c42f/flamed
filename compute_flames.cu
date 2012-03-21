@@ -32,6 +32,9 @@
     } while(false)
 
 
+// TODO: Fix this awful hard coded maximum!
+#define MAX_MAPS 20
+
 void initCuda()
 {
     ASSERT_CUDA_SUCCESS(cudaGLSetGLDevice(0));
@@ -52,8 +55,8 @@ __global__ void flameGenKernel(IFSPoint* points, curandState_t* rngs,
                                FlameMapping* flameMaps, int nMaps)
 {
     long long id = blockIdx.x*blockDim.x + threadIdx.x;
-    __shared__ FlameMapping maps[10];
-    if(threadIdx.x < nMaps)
+    __shared__ FlameMapping maps[MAX_MAPS];
+    if(threadIdx.x < nMaps+1)
         maps[threadIdx.x] = flameMaps[threadIdx.x];
     syncthreads();
     curandState_t gen = rngs[id];
@@ -75,7 +78,7 @@ __global__ void flameGenKernel(IFSPoint* points, curandState_t* rngs,
         const FlameMapping& m = maps[mapIdx];
         p = m.map(p);
         col = m.colorSpeed*m.col + (1-m.colorSpeed)*col;
-        points[i].pos = p;
+        points[i].pos = maps[nMaps].map(p); // final map is last one
         points[i].col = col;
     }
     rngs[id] = gen;
@@ -122,7 +125,11 @@ void GPUFlameEngine::generate(PointVBO* points, const FlameMaps& flameMaps)
 
     ASSERT_CUDA_SUCCESS(cudaGLRegisterBufferObject(points->id()));
 
-    m_pimpl->flameMaps = flameMaps.maps;
+    thrust::device_vector<FlameMapping>& flameMaps_d = m_pimpl->flameMaps;
+    flameMaps_d = flameMaps.maps;
+    flameMaps_d.push_back(flameMaps.finalMap);
+    if(flameMaps_d.size() > MAX_MAPS)
+        flameMaps_d.resize(MAX_MAPS);
 
     IFSPoint* ifsPoints = 0;
     ASSERT_CUDA_SUCCESS(cudaGLMapBufferObject((void**)&ifsPoints, points->id()));
@@ -131,35 +138,12 @@ void GPUFlameEngine::generate(PointVBO* points, const FlameMaps& flameMaps)
     flameGenKernel<<<ceildiv(m_pimpl->nThreads, blockSize), blockSize>>>(
         ifsPoints, thrust::raw_pointer_cast(&m_pimpl->randState[0]),
         m_pimpl->nThreads, points->size(),
-        thrust::raw_pointer_cast(&m_pimpl->flameMaps[0]),
+        thrust::raw_pointer_cast(&flameMaps_d[0]),
         flameMaps.maps.size()
     );
     ASSERT_KERNEL_SUCCESS("flameGenKernel");
 
     ASSERT_CUDA_SUCCESS(cudaGLUnmapBufferObject(points->id()));
     ASSERT_CUDA_SUCCESS(cudaGLUnregisterBufferObject(points->id()));
-
-
-    /*
-    int nMaps = flameMaps.maps.size();
-    // Flame fractals!
-    V2f p = V2f(0,0);
-    int discard = 20;
-    C3f col(1);
-    int nPoints = points->size();
-    for(int i = -discard; i < nPoints; ++i)
-    {
-        int mapIdx = rand() % nMaps;
-        const FlameMapping& m = flameMaps.maps[mapIdx];
-        p = m.map(p);
-        col = m.colorSpeed*m.col + (1-m.colorSpeed)*col;
-        if(i >= 0)
-        {
-            ptData->pos = p;
-            ptData->col = col;
-            ++ptData;
-        }
-    }
-    */
 }
 

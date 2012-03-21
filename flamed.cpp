@@ -64,6 +64,8 @@ shared_ptr<FlameMaps> FlameViewWidget::initMaps()
 {
     shared_ptr<FlameMaps> maps(new FlameMaps());
 
+    maps->finalMap.preMap.m *= 0.5;
+
     FlameMapping defaultMap;
     defaultMap.preMap.m = M22f(1);
     defaultMap.postMap.m = M22f(1);
@@ -102,13 +104,12 @@ FlameViewWidget::FlameViewWidget()
     m_undoList(),
     m_redoList(),
     m_useGpu(true),
-    m_editMaps(true),
+    m_editMaps(false),
     m_editMode(Mode_Translate),
     m_mapToEdit(0),
     m_editPreTransform(true),
     m_lastPos(),
     m_invPick(1),
-    m_screenYMax(2),
     m_frameTimer(),
     m_hdriExposure(1),
     m_hdriPow(1),
@@ -246,7 +247,10 @@ void FlameViewWidget::paintGL()
     glDisable(GL_TEXTURE_2D);
 
     glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_ONE);
+    // Use of ONE_MINUS_DST_COLOR is a quick hack to get an approximate overlay
+    // of "background" over fractal (proper transparency is harder due to
+    // beamer styling constraints).
+    glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
 //    glClearColor(0,0,0,0);
 //    glClear(GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
@@ -404,15 +408,15 @@ void FlameViewWidget::mousePressEvent(QMouseEvent* event)
 {
     m_lastPos = event->pos();
     float aspect = float(width())/height();
-    V2f mousePos = 2*V2f( 2*float(m_lastPos.x())/height() - aspect,
-                         -2*float(m_lastPos.y())/height() + 1);
+    V2f mousePos = V2f( 2*float(m_lastPos.x())/height() - aspect,
+                       -2*float(m_lastPos.y())/height() + 1);
     if(event->button() == Qt::RightButton)
     {
         float closestDist = FLT_MAX;
         // Find centre of nearest transform & use that one.
         for(int i = 0; i < (int)m_flameMaps->maps.size(); ++i)
         {
-            V2f c = m_flameMaps->maps[i].map(V2f(0));
+            V2f c = m_flameMaps->fullMap(V2f(0), i);
             float d2 = (c - mousePos).length2();
             if(d2 < closestDist)
             {
@@ -425,14 +429,13 @@ void FlameViewWidget::mousePressEvent(QMouseEvent* event)
     // choose the closest resulting point to the mouse position.
     float closestDist = FLT_MAX;
     const int N = 100;
-    FlameMapping& map = m_flameMaps->maps[m_mapToEdit];
     float scale = 1;
 //    aspect = 1;
 //    for(int j = 0; j <= N; ++j)
 //    for(int i = 0; i <= N; ++i)
 //    {
 //        V2f p = scale*V2f(aspect*(2.0*i/N - 1), 2.0*j/N - 1);
-//        V2f pMap = map.map(p);
+//        V2f pMap = m_flameMaps->fullMap(p, m_mapToEdit);
 //        float d2 = (pMap - mousePos).length2();
 //        if(d2 < closestDist)
 //        {
@@ -444,7 +447,7 @@ void FlameViewWidget::mousePressEvent(QMouseEvent* event)
     {
         float theta = 2*M_PI*i/N;
         V2f p = scale*V2f(cos(theta),  sin(theta));
-        V2f pMap = map.map(p);
+        V2f pMap = m_flameMaps->fullMap(p, m_mapToEdit);
         float d2 = (pMap - mousePos).length2();
         if(d2 < closestDist)
         {
@@ -485,7 +488,7 @@ void FlameViewWidget::mouseReleaseEvent(QMouseEvent* event)
 
 QSize FlameViewWidget::sizeHint() const
 {
-    return QSize(800, 600);
+    return QSize(1000, 750);
 }
 
 
@@ -493,7 +496,7 @@ void FlameViewWidget::loadScreenCoords() const
 {
     glLoadIdentity();
     float aspect = float(width())/height();
-    glScalef(1/(m_screenYMax*aspect), 1/m_screenYMax, 1);
+    glScalef(1/aspect, 1, 1);
 }
 
 
@@ -511,8 +514,7 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
     float scale = 1;
     for(int k = 0; k < (int)maps.size(); ++k)
     {
-        const FlameMapping& m = maps[k];
-        C3f c = m.col;
+        C3f c = maps[k].col;
         if(k != m_mapToEdit)
             c = 0.5*c;
         glColor(c);
@@ -522,22 +524,21 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
         {
             float theta = 2*M_PI*i/N;
             float theta1 = 2*M_PI*(i+1)/N;
-            glVertex(m.map(scale*V2f(cos(theta),  sin(theta))));
-            glVertex(m.map(scale*V2f(cos(theta1), sin(theta1))));
+            glVertex(flameMaps->fullMap(scale*V2f(cos(theta),  sin(theta)), k));
+            glVertex(flameMaps->fullMap(scale*V2f(cos(theta1), sin(theta1)), k));
         }
         for(int i = 0; i < N; ++i)
         {
-            glVertex(m.map(scale*V2f(2.0*i/N - 1,     0)));
-            glVertex(m.map(scale*V2f(2.0*(i+1)/N - 1, 0)));
-            glVertex(m.map(scale*V2f(0, 2.0*i/N - 1    )));
-            glVertex(m.map(scale*V2f(0, 2.0*(i+1)/N - 1)));
+            glVertex(flameMaps->fullMap(scale*V2f(2.0*i/N - 1,     0), k));
+            glVertex(flameMaps->fullMap(scale*V2f(2.0*(i+1)/N - 1, 0), k));
+            glVertex(flameMaps->fullMap(scale*V2f(0, 2.0*i/N - 1    ), k));
+            glVertex(flameMaps->fullMap(scale*V2f(0, 2.0*(i+1)/N - 1), k));
         }
         glEnd();
     }
 
     // Plot position if transformation handle
-    const FlameMapping& m = maps[m_mapToEdit];
-    V2f res = m.map(m_invPick);
+    V2f res = flameMaps->fullMap(m_invPick, m_mapToEdit);
     glPointSize(10);
     glColor(C3f(1));
     glBegin(GL_POINTS);

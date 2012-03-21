@@ -66,7 +66,6 @@ class FlameViewWidget : public QGLWidget
         QPoint m_lastPos;
         V2f m_invPick;
 
-        float m_screenYMax;
         QTimer* m_frameTimer;
         float m_hdriExposure;
         float m_hdriPow;

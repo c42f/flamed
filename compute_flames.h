@@ -193,6 +193,11 @@ struct FlameMaps
     std::vector<FlameMapping> maps;
     FlameMapping finalMap;
 
+    V2f fullMap(const V2f& p, int i) const
+    {
+        return finalMap.map(maps[i].map(p));
+    }
+
     void save(std::ostream& out);
     bool load(std::istream& in);
 };
