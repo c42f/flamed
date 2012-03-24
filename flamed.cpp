@@ -123,17 +123,8 @@ FlameViewWidget::FlameViewWidget()
     m_lastPos(),
     m_invPick(1),
     m_frameTimer(),
-    m_nPasses(0),
-    m_background(),
-    m_backgroundPageNum(0),
-    m_backgroundTexture(0)
+    m_nPasses(0)
 {
-    // Load presentation
-    m_background.reset(Poppler::Document::load("../doc/bgpu_talk.pdf"));
-    m_background->setRenderHint(Poppler::Document::Antialiasing);
-    m_background->setRenderHint(Poppler::Document::TextAntialiasing);
-    m_background->setPaperColor(QColor(0,0,0,0));
-
     m_undoList.push_back(shared_ptr<FlameMaps>(new FlameMaps(*m_flameMaps)));
 
     // Install timer with zero timeout to continuously insert extra points into
@@ -142,31 +133,6 @@ FlameViewWidget::FlameViewWidget()
     m_frameTimer->setSingleShot(false);
     m_frameTimer->start(0);
     connect(m_frameTimer, SIGNAL(timeout()), this, SLOT(updateGL()));
-}
-
-
-void FlameViewWidget::bindBackgroundTexture(GLuint& texId, int pageNum)
-{
-    if(!m_background)
-        return;
-    shared_ptr<Poppler::Page> pdfPage(m_background->page(pageNum));
-    QSize s = pdfPage->pageSize();
-    int yres = height()*72/s.height();
-    texId = bindTexture(pdfPage->renderToImage(yres, yres));
-    // hack: also load in fractal coeffs for page
-    QString fName = QString("../doc/page%1.flamed").arg(pageNum);
-    std::ifstream inFile(fName.toStdString().c_str());
-    if(inFile)
-    {
-        m_flameMaps->load(inFile);
-        m_frameTimer->start(0);
-    }
-    else
-    {
-        m_flameMaps->maps.clear();
-        m_frameTimer->stop();
-    }
-    clearAccumulator();
 }
 
 
@@ -200,8 +166,6 @@ void FlameViewWidget::initializeGL()
 
     const int batchSize = 2000000;
     m_ifsPoints.reset(new PointVBO(batchSize));
-
-    bindBackgroundTexture(m_backgroundTexture, m_backgroundPageNum);
 }
 
 
@@ -213,32 +177,11 @@ void FlameViewWidget::resizeGL(int w, int h)
                                  GL_TEXTURE_2D, GL_RGBA32F)
     );
     clearAccumulator();
-    bindBackgroundTexture(m_backgroundTexture, m_backgroundPageNum);
 }
 
 
 void FlameViewWidget::paintGL()
 {
-    // Draw background
-    glColor3f(1,1,1);
-    glEnable(GL_TEXTURE_2D);
-    glDisable(GL_BLEND);
-    glClearColor(0,0,0,0);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glLoadIdentity();
-    glBindTexture(GL_TEXTURE_2D, m_backgroundTexture);
-    glBegin(GL_QUADS);
-        glTexCoord2f(0, 0);
-        glVertex2f(-1, -1);
-        glTexCoord2f(1, 0);
-        glVertex2f(1, -1);
-        glTexCoord2f(1, 1);
-        glVertex2f(1, 1);
-        glTexCoord2f(0, 1);
-        glVertex2f(-1, 1);
-    glEnd();
-    glDisable(GL_TEXTURE_2D);
-
     if(m_flameMaps->maps.empty())
         return;
 
@@ -269,13 +212,9 @@ void FlameViewWidget::paintGL()
     m_pointRenderProgram->release();
     m_pointAccumFBO->release();
 
-    glEnable(GL_BLEND);
-    // Use of ONE_MINUS_DST_COLOR is a quick hack to get an approximate overlay
-    // of "background" over fractal (proper transparency is harder due to
-    // beamer styling constraints).
-    glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
-//    glClearColor(0,0,0,0);
-//    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_BLEND);
+    glClearColor(0,0,0,0);
+    glClear(GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
     m_hdriProgram->bind();
     // Bind FBO to texture unit & set shader params.
@@ -409,19 +348,6 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
     {
         // toggle fullscreen
         setWindowState(windowState() ^ Qt::WindowFullScreen);
-    }
-    else if(event->key() == Qt::Key_PageUp && m_background)
-    {
-        m_backgroundPageNum = std::max(m_backgroundPageNum - 1, 0);
-        bindBackgroundTexture(m_backgroundTexture, m_backgroundPageNum);
-        updateGL();
-    }
-    else if(event->key() == Qt::Key_PageDown && m_background)
-    {
-        m_backgroundPageNum = std::min(m_backgroundPageNum + 1,
-                                       m_background->numPages() - 1);
-        bindBackgroundTexture(m_backgroundTexture, m_backgroundPageNum);
-        updateGL();
     }
     else
         event->ignore();

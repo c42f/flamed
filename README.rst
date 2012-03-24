@@ -18,10 +18,10 @@ FlameViewWidget::keyPressEvent() in flamed.cpp for details.
 Building and running
 --------------------
 
-First you need the boost, CUDA, Qt4, and poppler-qt4 libraries, as well as the
-OpenGL headers for your system.  (It would be best to remove boost as a
-dependency, but it's filling a stopgap role for now.)  You also need cmake
-which is used to manage the build system.
+First you need the boost, CUDA, and Qt4 libraries, as well as the OpenGL
+headers for your system.  (It would be best to remove boost as a dependency,
+but it's filling a stopgap role for now.)  You also need cmake which is used to
+manage the build system.
 
 To build on linux::
 

@@ -171,7 +171,6 @@ void CPUFlameEngine::generate(PointVBO* points, const FlameMaps& flameMaps)
     IFSPoint* ptData = points->mapBuffer(GL_WRITE_ONLY);
 
     int nMaps = flameMaps.maps.size();
-    // Flame fractals!
     V2f p = V2f(0,0);
     int discard = 20;
     C3f col(1);

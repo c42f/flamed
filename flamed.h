@@ -76,7 +76,6 @@ class FlameViewWidget : public QGLWidget
         void loadScreenCoords() const;
         void drawMaps(const FlameMaps* flameMaps);
         void clearAccumulator();
-        void bindBackgroundTexture(GLuint& texId, int pageNum);
 
         shared_ptr<QGLShaderProgram> m_pointRenderProgram;
         shared_ptr<QGLShaderProgram> m_hdriProgram;
@@ -97,10 +96,5 @@ class FlameViewWidget : public QGLWidget
 
         QTimer* m_frameTimer;
         int m_nPasses;
-
-        /// Handling of background PDF pages for presentation.
-        shared_ptr<Poppler::Document> m_background;
-        int m_backgroundPageNum;
-        GLuint m_backgroundTexture;
 };
 
