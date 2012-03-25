@@ -94,20 +94,19 @@ __global__ void flameGenKernel(IFSPoint* points, curandState_t* rngs,
     C3f col(0);
     for(int i = 0; i < discard; ++i)
     {
-        float rnd = curand_uniform(&gen);
-        int mapIdx = int(rnd*nMaps);
+        int mapIdx = curand(&gen) % nMaps;
         const FlameMapping& m = maps[mapIdx];
         p = m.map(p);
         col = m.colorSpeed*m.col + (1-m.colorSpeed)*col;
     }
     for(long long i = id; i < nPoints; i += nThreads)
     {
-        float rnd = curand_uniform(&gen);
-        int mapIdx = int(rnd*nMaps);
+        int mapIdx = curand(&gen) % nMaps;
         const FlameMapping& m = maps[mapIdx];
         p = m.map(p);
         col = m.colorSpeed*m.col + (1-m.colorSpeed)*col;
-        points[i].pos = maps[nMaps].map(p); // final map is last one
+        // "out of loop" map is last one in the maps array.
+        points[i].pos = maps[nMaps].map(p);
         points[i].col = col;
     }
     rngs[id] = gen;
