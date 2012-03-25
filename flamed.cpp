@@ -303,7 +303,7 @@ void FlameViewWidget::paintGL()
     if(m_editMaps)
         drawMaps(m_flameMaps.get());
     // Debug: for timing.
-//    if(m_nPasses*m_ifsPoints->size() > 40000000)
+//    if(m_nPasses*m_ifsPoints->size() > 400000000)
 //        close();
 }
 
