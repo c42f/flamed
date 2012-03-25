@@ -129,9 +129,11 @@ struct GPUFlameEngine::Pimpl
 
 
 GPUFlameEngine::GPUFlameEngine()
-    : m_pimpl(new Pimpl(40000))
+    : m_pimpl()
 {
     const int blockSize = 256;
+    const int nThreads = blockSize*(40000/blockSize);
+    m_pimpl.reset(new Pimpl(nThreads));
     rngInitKernel<<<ceildiv(m_pimpl->nThreads,blockSize), blockSize>>>(
         thrust::raw_pointer_cast(&m_pimpl->randState[0]), m_pimpl->nThreads);
     ASSERT_KERNEL_SUCCESS("rngInitKernel");
