@@ -260,12 +260,13 @@ class GPUFlameEngine : public FlameEngine
 {
     public:
         GPUFlameEngine();
+        ~GPUFlameEngine();
 
         virtual void generate(PointVBO* points, const FlameMaps& flameMaps);
 
     private:
         struct Pimpl;
-        shared_ptr<Pimpl> m_pimpl;
+        Pimpl* m_pimpl;
 };
 
 

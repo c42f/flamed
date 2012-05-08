@@ -43,6 +43,12 @@ namespace Poppler { class Document; }
 
 struct FlameMaps;
 
+#include <tr1/memory>
+// Note: gcc's tr1::shared_ptr doesn't work with nvcc, which is why this isn't
+// used in util.h :(
+using std::tr1::shared_ptr;
+
+
 // Viewer for flame fractals
 class FlameViewWidget : public QGLWidget
 {

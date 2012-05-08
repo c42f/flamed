@@ -35,6 +35,12 @@ set(srcs
     flamed.cpp
     compute_flames.cpp
 )
+set(hdrs
+    compute_flames.h
+    flamed.h
+    util.h
+)
+source_group("Header Files" FILES ${hdrs})
 
 set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build" FORCE)
 set(CMAKE_CXX_FLAGS "-Wall")

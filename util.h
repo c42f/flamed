@@ -41,9 +41,6 @@
 #include <math.h>
 #include <iostream>
 
-#include <boost/shared_ptr.hpp>
-using boost::shared_ptr; // gcc's tr1::shared_ptr doesn't work with nvcc :(
-
 // Compute ceil(real(n)/d) using integers for positive n and d.
 template<typename T>
 inline T ceildiv(T n, T d)
