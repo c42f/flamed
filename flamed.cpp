@@ -27,9 +27,8 @@
 //
 // (This is the New BSD license)
 
-#define GL_GLEXT_PROTOTYPES
+#include <GL/glew.h>
 #include <GL/gl.h>
-#include <GL/glext.h>
 
 #include "flamed.h"
 #include "compute_flames.h"
@@ -47,8 +46,6 @@
 #include <QtOpenGL/QGLShaderProgram>
 #include <QtCore/QTimer>
 #include <QtCore/QFileInfo>
-
-#include <poppler/qt4/poppler-qt4.h>
 
 
 #if 0
@@ -138,6 +135,9 @@ FlameViewWidget::FlameViewWidget()
 
 void FlameViewWidget::initializeGL()
 {
+    if(glewInit() != GLEW_OK)
+        QApplication::quit();
+
     m_hdriProgram.reset(new QGLShaderProgram);
     if(!m_hdriProgram->addShaderFromSourceFile(QGLShader::Fragment, "../hdri.glsl"))
         std::cout << "Shader compilation failed:\n"

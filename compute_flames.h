@@ -30,10 +30,8 @@
 #ifndef COMPUTE_FLAME_H_INCLUDED
 #define COMPUTE_FLAME_H_INCLUDED
 
-// ugh...
-#define GL_GLEXT_PROTOTYPES
+#include <GL/glew.h>
 #include <GL/gl.h>
-#include <GL/glext.h>
 
 #include <math.h>
 #include <vector>

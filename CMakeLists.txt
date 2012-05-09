@@ -7,22 +7,23 @@ find_package(CUDA)
 
 #-----------------------------------
 # find GLEW Snippet Pinched from OIIO
-#set (GLEW_VERSION 1.5.1)
-#find_library (GLEW_LIBRARIES NAMES GLEW)
-#find_path (GLEW_INCLUDES
-#           NAMES glew.h
-#           PATH_SUFFIXES GL)
-#if (GLEW_INCLUDES AND GLEW_LIBRARIES)
-#    set (GLEW_FOUND TRUE)
-#    message (STATUS "GLEW includes = ${GLEW_INCLUDES}")
-#    message (STATUS "GLEW library = ${GLEW_LIBRARIES}")
-#else ()
-#    message (STATUS "GLEW not found")
-#endif ()
+set (GLEW_VERSION 1.5.1)
+find_library (GLEW_LIBRARIES NAMES GLEW)
+find_path (GLEW_INCLUDES
+           NAMES glew.h
+           PATH_SUFFIXES GL)
+if (GLEW_INCLUDES AND GLEW_LIBRARIES)
+    set (GLEW_FOUND TRUE)
+    message (STATUS "GLEW includes = ${GLEW_INCLUDES}")
+    message (STATUS "GLEW library = ${GLEW_LIBRARIES}")
+else ()
+    message (STATUS "GLEW not found")
+endif ()
 #-----------------------------------
 
 
-include_directories(${QT_INCLUDES} ${GLEW_INCLUDES} ${CUDA_INCLUDE_DIRS})
+include_directories(${QT_INCLUDES} ${GLEW_INCLUDES} ${CUDA_INCLUDE_DIRS}
+                    ${GLEW_INCLUDES})
 
 qt4_wrap_cpp(moc_srcs
     flamed.h
@@ -47,7 +48,5 @@ set(CMAKE_CXX_FLAGS "-Wall")
 
 add_executable(flamed ${srcs})
 target_link_libraries(flamed ${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY} ${QT_QTOPENGL_LIBRARY}
-                      ${CUDA_LIBRARIES} poppler-qt4)
-	#${GLEW_LIBRARIES})
-
+                      ${CUDA_LIBRARIES} ${GLEW_LIBRARIES})
 
