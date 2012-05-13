@@ -56,6 +56,11 @@ class FlameViewWidget : public QGLWidget
     public:
         FlameViewWidget();
 
+        /// Load fractal from file
+        void load(const char* fileName);
+        /// Save current fractal to file
+        void save(const char* fileName);
+
     protected:
         // GL stuff
         void initializeGL();

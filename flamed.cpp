@@ -133,6 +133,21 @@ FlameViewWidget::FlameViewWidget()
 }
 
 
+void FlameViewWidget::load(const char* fileName)
+{
+    std::ifstream inFile(fileName);
+    if(!m_flameMaps->load(inFile))
+        std::cerr << "failed to load test.flamed\n";
+}
+
+
+void FlameViewWidget::save(const char* fileName)
+{
+    std::ofstream outFile(fileName);
+    m_flameMaps->save(outFile);
+}
+
+
 void FlameViewWidget::initializeGL()
 {
     if(glewInit() != GLEW_OK)
@@ -524,6 +539,10 @@ int main(int argc, char* argv[])
 
     FlameViewWidget view;
     view.show();
+
+    // Assume any command line arguments are files to load.
+    if(argc > 1)
+        view.load(argv[1]);
 
     return app.exec();
 }
