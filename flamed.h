@@ -97,6 +97,7 @@ class FlameViewWidget : public QGLWidget
         std::vector<shared_ptr<FlameMaps> > m_undoList;
         std::vector<shared_ptr<FlameMaps> > m_redoList;
         bool m_useGpu;
+        bool m_whiteBackground;
 
         bool m_editMaps;
         EditMode m_editMode;

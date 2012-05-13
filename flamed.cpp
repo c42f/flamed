@@ -113,6 +113,7 @@ FlameViewWidget::FlameViewWidget()
     m_undoList(),
     m_redoList(),
     m_useGpu(true),
+    m_whiteBackground(false),
     m_editMaps(false),
     m_editMode(Mode_Translate),
     m_mapToEdit(0),
@@ -239,6 +240,7 @@ void FlameViewWidget::paintGL()
     float pointDens = float(width()*height()) / (m_nPasses*m_ifsPoints->size());
     m_hdriProgram->setUniformValue("hdriExposure", m_flameMaps->hdrExposure*pointDens);
     m_hdriProgram->setUniformValue("hdriPow", m_flameMaps->hdrPow);
+    m_hdriProgram->setUniformValue("whiteBackground", m_whiteBackground);
     glBindTexture(GL_TEXTURE_2D, m_pointAccumFBO->texture());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -305,14 +307,11 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
         // Test - save or load fractal flame
         if(event->modifiers() == Qt::ControlModifier)
         {
-            std::ofstream outFile("test.flamed");
-            m_flameMaps->save(outFile);
+            save("test.flamed");
         }
         else
         {
-            std::ifstream inFile("test.flamed");
-            if(!m_flameMaps->load(inFile))
-                std::cout << "failed to load test.flamed\n";
+            load("test.flamed");
             clearAccumulator();
             m_frameTimer->start(0);
         }
@@ -363,6 +362,10 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
     {
         // toggle fullscreen
         setWindowState(windowState() ^ Qt::WindowFullScreen);
+    }
+    else if(event->key() == Qt::Key_W)
+    {
+        m_whiteBackground = !m_whiteBackground;
     }
     else
         event->ignore();
@@ -480,9 +483,12 @@ void FlameViewWidget::drawMaps(const FlameMaps* flameMaps)
     for(int k = 0; k < (int)maps.size(); ++k)
     {
         C3f c = maps[k].col;
+        if(m_whiteBackground)
+            c = C3f(1) - c;
+        float opacity = 1;
         if(k != m_mapToEdit)
-            c = 0.5*c;
-        glColor(c);
+            opacity = 0.5;
+        glColor4f(c.x, c.y, c.z, opacity);
         glBegin(GL_LINES);
         const int N = 100;
         for(int i = 0; i < N; ++i)

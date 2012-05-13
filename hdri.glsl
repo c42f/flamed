@@ -26,8 +26,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //
 // (This is the New BSD license)
+#line 29 "hdri.glsl"
 
-#line 1 "hdri.glsl"
 // Convert linear RGB component to sRGB gamma corrected color space
 float sRGB_gamma_correct(float c)
 {
@@ -41,6 +41,7 @@ float sRGB_gamma_correct(float c)
 uniform sampler2D tex;
 uniform float hdriExposure;
 uniform float hdriPow;
+uniform bool whiteBackground;
 
 // HDRI tone mapping
 void main()
@@ -59,19 +60,22 @@ void main()
     // Treat input texture as linear color space.  We transform to
     // CIE xyY color space
     vec4 texCol = texture2D(tex, gl_TexCoord[0].xy);
-    vec3 XYZ = RGB_to_XYZ * texCol.xyz;
-    float x = XYZ.x / (XYZ.x + XYZ.y + XYZ.z);
-    float y = XYZ.y / (XYZ.x + XYZ.y + XYZ.z);
-    float Y = XYZ.y;
-    // and tone map the luminosity Y, before transforming back:
-    if(Y != 0.0)
+    vec3 RGB = vec3(whiteBackground ? 1.0 : 0.0);
+    if(texCol.x != 0.0 || texCol.y != 0.0 || texCol.z != 0.0)
     {
+        vec3 XYZ = RGB_to_XYZ * texCol.xyz;
+        float x = XYZ.x / (XYZ.x + XYZ.y + XYZ.z);
+        float y = XYZ.y / (XYZ.x + XYZ.y + XYZ.z);
+        float Y = XYZ.y;
+        // and tone map the luminosity Y, before transforming back:
         Y = hdriExposure*pow(Y, hdriPow);
         Y = Y / (1.0 + Y);
+        if(whiteBackground)
+            Y = 1.0 - Y;
+        //Y = clamp(Y/100.0, 0.0, 1.0);
+        XYZ = vec3(Y*x/y, Y, Y*(1.0-x-y)/y);
+        RGB = XYZ_to_RGB * XYZ;
     }
-    //Y = clamp(Y/100.0, 0.0, 1.0);
-    XYZ = vec3(Y*x/y, Y, Y*(1.0-x-y)/y);
-    vec3 RGB = XYZ_to_RGB * XYZ;
     gl_FragColor = vec4(sRGB_gamma_correct(RGB.x),
                         sRGB_gamma_correct(RGB.y),
                         sRGB_gamma_correct(RGB.z),

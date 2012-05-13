@@ -78,6 +78,10 @@ GPU_HOSTDEV inline C3f operator+(const C3f& c1, const C3f& c2)
 {
     return C3f(c1.x + c2.x, c1.y + c2.y, c1.z + c2.z);
 }
+GPU_HOSTDEV inline C3f operator-(const C3f& c1, const C3f& c2)
+{
+    return C3f(c1.x - c2.x, c1.y - c2.y, c1.z - c2.z);
+}
 GPU_HOSTDEV inline C3f operator*(float a, const C3f& c)
 {
     return C3f(c.x*a, c.y*a, c.z*a);
