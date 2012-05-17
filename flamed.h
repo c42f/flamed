@@ -27,7 +27,11 @@
 //
 // (This is the New BSD license)
 
+#ifndef FLAMED_H_INCLUDED
+#define FLAMED_H_INCLUDED
+
 #include <QtOpenGL/QGLWidget>
+#include <QtGui/QMainWindow>
 
 #include "util.h"
 
@@ -49,12 +53,12 @@ struct FlameMaps;
 using std::tr1::shared_ptr;
 
 
-// Viewer for flame fractals
+/// Viewer for flame fractals
 class FlameViewWidget : public QGLWidget
 {
     Q_OBJECT
     public:
-        FlameViewWidget();
+        FlameViewWidget(QWidget* parent = 0);
 
         /// Load fractal from file
         void load(const char* fileName);
@@ -110,3 +114,25 @@ class FlameViewWidget : public QGLWidget
         int m_nPasses;
 };
 
+
+//------------------------------------------------------------------------------
+/// Main window for fractal flame viewer housing menu logic, etc.
+class FlamedMainWindow : public QMainWindow
+{
+    Q_OBJECT
+    public:
+        FlamedMainWindow();
+
+        FlameViewWidget& flameView() { return *m_flameView; }
+
+    private slots:
+        void openFile();
+        void saveFile();
+        void exportBitmap();
+        void toggleFullscreen();
+
+    private:
+        FlameViewWidget* m_flameView;
+};
+
+#endif // FLAMED_H_INCLUDED

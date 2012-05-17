@@ -40,7 +40,9 @@
 #include <float.h>
 
 #include <QtGui/QApplication>
+#include <QtGui/QFileDialog>
 #include <QtGui/QKeyEvent>
+#include <QtGui/QMenuBar>
 #include <QtOpenGL/QGLFramebufferObject>
 #include <QtOpenGL/QGLShader>
 #include <QtOpenGL/QGLShaderProgram>
@@ -108,8 +110,9 @@ shared_ptr<FlameMaps> FlameViewWidget::initMaps()
 
 
 //------------------------------------------------------------------------------
-FlameViewWidget::FlameViewWidget()
-    : m_flameMaps(initMaps()),
+FlameViewWidget::FlameViewWidget(QWidget* parent)
+    : QGLWidget(parent),
+    m_flameMaps(initMaps()),
     m_undoList(),
     m_redoList(),
     m_useGpu(true),
@@ -123,6 +126,8 @@ FlameViewWidget::FlameViewWidget()
     m_frameTimer(),
     m_nPasses(0)
 {
+    setFocusPolicy(Qt::StrongFocus); // accept keyboard focus
+
     m_undoList.push_back(shared_ptr<FlameMaps>(new FlameMaps(*m_flameMaps)));
 
     // Install timer with zero timeout to continuously insert extra points into
@@ -137,7 +142,9 @@ FlameViewWidget::FlameViewWidget()
 void FlameViewWidget::load(const char* fileName)
 {
     std::ifstream inFile(fileName);
-    if(!m_flameMaps->load(inFile))
+    if(m_flameMaps->load(inFile))
+        clearAccumulator();
+    else
         std::cerr << "failed to load test.flamed\n";
 }
 
@@ -296,12 +303,6 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
         m_mapToEdit = (m_mapToEdit + m_flameMaps->maps.size()) %
                       m_flameMaps->maps.size();
     }
-    else if(event->key() == Qt::Key_P)
-    {
-        // get file name
-        QString fName = uniqueIndexedFileName("../output/output%1.png");
-        grabFrameBuffer().save(fName);
-    }
     else if(event->key() == Qt::Key_L)
     {
         // Test - save or load fractal flame
@@ -316,8 +317,6 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
             m_frameTimer->start(0);
         }
     }
-    else if(event->key() == Qt::Key_Escape)
-        close();
     else if(event->key() == Qt::Key_Z &&
             event->modifiers() == Qt::ControlModifier)
     {
@@ -357,11 +356,6 @@ void FlameViewWidget::keyPressEvent(QKeyEvent* event)
             m_flameEngine.reset(new CPUFlameEngine());
             m_useGpu = false;
         }
-    }
-    else if(event->key() == Qt::Key_F11)
-    {
-        // toggle fullscreen
-        setWindowState(windowState() ^ Qt::WindowFullScreen);
     }
     else if(event->key() == Qt::Key_W)
     {
@@ -539,16 +533,95 @@ void FlameViewWidget::clearAccumulator()
 }
 
 
+//------------------------------------------------------------------------------
+
+FlamedMainWindow::FlamedMainWindow()
+    : m_flameView(0)
+{
+    setWindowTitle(tr("FlamEd"));
+
+    // Menus.  Note that we add each action to the main window so that when the
+    // menu bar is hidden the shortcuts continue to work.
+    QMenu* fileMenu = menuBar()->addMenu(tr("&File"));
+        QAction* openAct = fileMenu->addAction(tr("&Open"));
+            openAct->setStatusTip(tr("Open a flame parameter file"));
+            openAct->setShortcuts(QKeySequence::Open);
+            connect(openAct, SIGNAL(triggered()), this, SLOT(openFile()));
+            addAction(openAct);
+        QAction* saveAct = fileMenu->addAction(tr("&Save"));
+            saveAct->setStatusTip(tr("Save a flame parameter file"));
+            saveAct->setShortcuts(QKeySequence::Save);
+            connect(saveAct, SIGNAL(triggered()), this, SLOT(saveFile()));
+            addAction(saveAct);
+        QAction* exportAct = fileMenu->addAction(tr("Export &Bitmap"));
+            exportAct->setStatusTip(tr("Save current image"));
+            exportAct->setShortcut(tr("Ctrl+Shift+S"));
+            connect(exportAct, SIGNAL(triggered()), this, SLOT(exportBitmap()));
+            addAction(exportAct);
+        fileMenu->addSeparator();
+        QAction* quitAct = fileMenu->addAction(tr("&Quit"));
+            quitAct->setShortcuts(QKeySequence::Close);
+            connect(quitAct, SIGNAL(triggered()), this, SLOT(close()));
+            addAction(quitAct);
+    QMenu* viewMenu = menuBar()->addMenu(tr("&View"));
+        QAction* fullscreenAct = viewMenu->addAction(tr("&Fullscreen"));
+            fullscreenAct->setShortcut(Qt::Key_F11);
+            connect(fullscreenAct, SIGNAL(triggered()), this, SLOT(toggleFullscreen()));
+            addAction(fullscreenAct);
+
+    m_flameView = new FlameViewWidget(this);
+    setCentralWidget(m_flameView);
+}
+
+
+void FlamedMainWindow::openFile()
+{
+    QString fileName = QFileDialog::getOpenFileName(this,
+                    tr("Select flame file"), tr("FlamEd files (*.flamed)"));
+    if(!fileName.isNull())
+        m_flameView->load(fileName.toUtf8().constData());
+}
+
+
+void FlamedMainWindow::saveFile()
+{
+    QString fileName = QFileDialog::getSaveFileName(this,
+                                tr("Save as"), QString(),
+                                tr("FlamEd files (*.flamed)"));
+    if(!fileName.isNull())
+        m_flameView->save(fileName.toUtf8().constData());
+}
+
+
+void FlamedMainWindow::exportBitmap()
+{
+    QString fileName = QFileDialog::getSaveFileName(this,
+                                tr("Save image as"), QString(),
+                                tr("Image files (*.png *.jpg *.tif)"));
+    if(!fileName.isNull())
+        m_flameView->grabFrameBuffer().save(fileName);
+}
+
+
+void FlamedMainWindow::toggleFullscreen()
+{
+    setWindowState(windowState() ^ Qt::WindowFullScreen);
+    menuBar()->setVisible(!menuBar()->isVisible());
+}
+
+
+//------------------------------------------------------------------------------
+
 int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
 
-    FlameViewWidget view;
-    view.show();
+    FlamedMainWindow mainWin;
+    mainWin.show();
 
-    // Assume any command line arguments are files to load.
+    // Assume first command line argument is a file to load.
     if(argc > 1)
-        view.load(argv[1]);
+        mainWin.flameView().load(argv[1]);
 
     return app.exec();
 }
